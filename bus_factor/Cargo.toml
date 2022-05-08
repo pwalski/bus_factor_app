@@ -1,0 +1,12 @@
+[package]
+name = "bus_factor"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1.0"
+derive_more = "0.99"
+clients = { path = "../clients" }
+github_client = { path = "../clients/github" }

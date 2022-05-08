@@ -1,0 +1,11 @@
+[package]
+name = "bus_factor_app"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = ["bus_factor", "clients", "clients/github"]
+
+[dependencies]
+bus_factor = { path = "bus_factor" }
