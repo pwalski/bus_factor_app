@@ -1,0 +1,4 @@
+**/apis/**
+!**/apis/repos_api.rs
+!**/apis/search_api.rs
+

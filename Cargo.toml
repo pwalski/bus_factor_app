@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["bus_factor", "clients", "clients/github"]
+members = ["bus_factor", "clients", "clients/github", "clients/github/openapi"]
 
 [dependencies]
 bus_factor = { path = "bus_factor" }

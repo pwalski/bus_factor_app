@@ -1,0 +1,4 @@
+[submodule "clients/github/api"]
+	path = clients/github/api
+	url = git@github.com:github/rest-api-description.git
+	branch = v1.1.4
