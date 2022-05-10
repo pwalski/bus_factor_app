@@ -20,8 +20,8 @@ pub trait Repo {
 }
 
 pub struct Contributor {
-    name: String,
-    percentage: f32,
+    pub name: String,
+    pub contributions: u32,
 }
 
 #[async_trait]

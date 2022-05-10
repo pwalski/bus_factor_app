@@ -1,4 +1,4 @@
-use std::fmt::Display;
+mod payload;
 
 use async_trait::async_trait;
 use clients::api::Contributor;
@@ -10,7 +10,6 @@ use reqwest::header::HeaderValue;
 use reqwest::Client;
 use reqwest::ClientBuilder;
 use secrecy::ExposeSecret;
-use serde::Deserialize;
 
 struct GithubClient {
     client: Client,
@@ -45,7 +44,7 @@ impl GithubClientBuilder {
     }
 }
 
-struct GithubRepo {
+pub struct GithubRepo {
     name: String,
     owner: String,
 }
@@ -53,31 +52,6 @@ struct GithubRepo {
 impl clients::api::Repo for GithubRepo {
     fn name(&self) -> &str {
         &self.name
-    }
-}
-
-#[derive(Deserialize, Debug)]
-struct SearchReposBody {
-    items: Vec<RepoBody>,
-}
-
-#[derive(Deserialize, Debug)]
-struct RepoBody {
-    name: String,
-    owner: RepoOwnerBody,
-}
-
-#[derive(Deserialize, Debug)]
-struct RepoOwnerBody {
-    login: String,
-}
-
-impl From<RepoBody> for GithubRepo {
-    fn from(repo: RepoBody) -> Self {
-        GithubRepo {
-            name: repo.name,
-            owner: repo.owner.login,
-        }
     }
 }
 
@@ -100,29 +74,57 @@ impl clients::api::Client for GithubClient {
             ])
             .send()
             .await?;
-        let response = response.json::<SearchReposBody>().await?;
+        let response = response.json::<payload::SearchRepos>().await?;
         let response = response.items.into_iter().map(GithubRepo::from).collect();
         Ok(response)
     }
 
-    async fn top_contributors(&self, contributor: Self::REPO, page: u32, per_page: u32) -> Result<Vec<Contributor>> {
-        todo!()
+    async fn top_contributors(&self, repo: Self::REPO, page: u32, per_page: u32) -> Result<Vec<Contributor>> {
+        let request_url = format!("{}/repos/{}/{}/contributors", self.github_url, repo.owner, repo.name);
+        let response = self
+            .client
+            .get(request_url)
+            .query(&[
+                ("anon", false.to_string()), //TODO check if `true` will produce empty names
+                ("page", page.to_string()),
+                ("per_page", per_page.to_string()),
+            ])
+            .send()
+            .await?;
+        let response = response.json::<Vec<payload::Contributor>>().await?;
+        let response = response.into_iter().map(Contributor::from).collect();
+        Ok(response)
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::GithubClientBuilder;
+    use crate::{GithubClientBuilder, GithubRepo};
     use clients::api::Client;
 
     // #[tokio::test]
-    async fn naive_bad_test() {
+    async fn naive_bad_top_repos_test() -> Result<(), anyhow::Error> {
         let client = GithubClientBuilder::default()
-            .with_user_agent("curl")
-            .unwrap()
-            .build("https://api.github.com".to_string())
-            .unwrap();
-        let res = client.top_repos("rust".to_string(), 1, 25).await.unwrap();
+            .with_user_agent("curl")?
+            .build("https://api.github.com".to_string())?;
+        let res = client.top_repos("rust".to_string(), 1, 25).await?;
         assert!(res.len() == 25);
         assert_eq!(res[0].name, "deno");
+        Ok(())
+    }
+
+    // #[tokio::test]
+    async fn naive_bad_top_contributors_test() -> Result<(), anyhow::Error> {
+        let client = GithubClientBuilder::default()
+            .with_user_agent("curl")?
+            .build("https://api.github.com".to_string())?;
+        let repo = GithubRepo {
+            name: "deno".into(),
+            owner: "denoland".into(),
+        };
+        let res = client.top_contributors(repo, 1, 5).await?;
+        assert!(res.len() == 5);
+        assert_eq!(res[0].name, "ry");
+        assert_eq!(res[0].contributions, 1396);
+        Ok(())
     }
 }
