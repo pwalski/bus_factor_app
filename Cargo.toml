@@ -9,3 +9,9 @@ members = ["bus_factor", "clients", "clients/github"]
 
 [dependencies]
 bus_factor = { path = "bus_factor" }
+clients = { path = "clients" }
+github_client = { path = "clients/github" }
+tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
+log = "0.4"
+env_logger = "0.9"
+secrecy = "0.8"

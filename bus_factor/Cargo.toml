@@ -7,6 +7,10 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0"
-derive_more = "0.99"
 clients = { path = "../clients" }
 github_client = { path = "../clients/github" }
+tokio = { version = "1.18", features = ["macros", "rt-multi-thread", "sync"] }
+tokio-stream = { version = "0.1", features = ["tokio-util"] }
+futures = { version = "0.3", features = ["std"] }
+log = "0.4"
+derive-new = "0.5"
