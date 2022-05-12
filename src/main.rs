@@ -1,13 +1,14 @@
-use bus_factor::BusFactor;
+use bus_factor_app::Args;
+use clap::Parser;
 use clients::api::Error;
-use github_client::GithubClientBuilder;
-use secrecy::SecretString;
+
+/// Simple program to greet a person
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
-    let bus_factor = GithubClientBuilder::default().build().map(BusFactor::new)?;
-    let mut receiver = bus_factor.calculate("rust", 10);
+    let args = Args::parse();
+    let mut receiver = bus_factor_app::calculate_bus_factor(args).await?;
+
     while let Some(res) = receiver.recv().await {
         println!("{}", res);
     }

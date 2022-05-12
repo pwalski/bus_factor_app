@@ -24,13 +24,13 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 
 #[derive(Debug, PartialEq, new)]
-pub struct RepoBusFactor {
+pub struct BusFactor {
     repo: String,
     contributor: String,
     bus_factor: f32,
 }
 
-impl Display for RepoBusFactor {
+impl Display for BusFactor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "project: {}\tuser: {}\tpercentage: {}",
@@ -38,7 +38,7 @@ impl Display for RepoBusFactor {
         ))
     }
 }
-pub struct BusFactor<
+pub struct BusFactorCalculator<
     REPO,
     const MAX_REPOS_PAGE: u32,
     const MAX_CONTRIBUTORS_PAGE: u32,
@@ -49,47 +49,46 @@ pub struct BusFactor<
     CLIENT: 'static + Client<REPO, MAX_REPOS_PAGE, MAX_CONTRIBUTORS_PAGE, FIRST_PAGE_NUMBER>,
 {
     client: Arc<CLIENT>,
+    threshold: f32,
     _repo_type: PhantomData<REPO>,
 }
 
 impl<REPO, const MAX_REPOS_PAGE: u32, const MAX_CONTRIBUTORS_PAGE: u32, const FIRST_PAGE_NUMBER: u32, CLIENT>
-    BusFactor<REPO, MAX_REPOS_PAGE, MAX_CONTRIBUTORS_PAGE, FIRST_PAGE_NUMBER, CLIENT>
+    BusFactorCalculator<REPO, MAX_REPOS_PAGE, MAX_CONTRIBUTORS_PAGE, FIRST_PAGE_NUMBER, CLIENT>
 where
     REPO: 'static + Repo,
     CLIENT: 'static + Client<REPO, MAX_REPOS_PAGE, MAX_CONTRIBUTORS_PAGE, FIRST_PAGE_NUMBER>,
 {
-    pub fn new(client: CLIENT) -> Self {
+    pub fn new(client: CLIENT, threshold: f32) -> Self {
         let client = Arc::new(client);
         let _repo_type = PhantomData::default();
-        BusFactor { client, _repo_type }
+        BusFactorCalculator {
+            client,
+            threshold,
+            _repo_type,
+        }
     }
 
-    pub fn calculate<STR>(&self, lang: STR, repo_count: u32) -> Receiver<RepoBusFactor>
-    where
-        STR: 'static + Into<String> + Copy + Send,
-    {
+    pub fn calculate(&self, lang: String, repo_count: u32) -> Receiver<BusFactor> {
         let repo_receiver = Self::top_repos(self.client.clone(), lang, repo_count);
-        let bus_factor_receiver = Self::top_contributors(repo_receiver, self.client.clone());
+        let bus_factor_receiver = Self::top_contributors(repo_receiver, self.client.clone(), self.threshold);
         return bus_factor_receiver;
     }
 
-    fn top_repos<STR>(client: Arc<CLIENT>, lang: STR, mut repo_count: u32) -> Receiver<Vec<REPO>>
-    where
-        STR: 'static + Into<String> + Copy + Send,
-    {
+    fn top_repos(client: Arc<CLIENT>, lang: String, mut repo_count: u32) -> Receiver<Vec<REPO>> {
         let (sender, receiver) = tokio::sync::mpsc::channel::<Vec<REPO>>(1);
         let mut page_num = FIRST_PAGE_NUMBER;
         tokio::spawn(async move {
             while repo_count > 0 {
                 let repos = if repo_count < MAX_REPOS_PAGE {
                     if page_num == FIRST_PAGE_NUMBER {
-                        client.top_repos(lang.into(), page_num, repo_count).await
+                        client.top_repos(lang.clone(), page_num, repo_count).await
                     } else {
-                        let mut repos = client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await;
+                        let mut repos = client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await;
                         repos.map(|v| Self::take_first_n(v, repo_count))
                     }
                 } else {
-                    client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await
+                    client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await
                 };
                 for repo in repos {
                     debug!("Found {} repositories", repo.len());
@@ -108,14 +107,24 @@ where
         v.into_iter().take(n as usize).collect()
     }
 
-    fn top_contributors(mut repo_receiver: Receiver<Vec<REPO>>, client: Arc<CLIENT>) -> Receiver<RepoBusFactor> {
-        let (bus_factor_sender, bus_factor_receiver) = tokio::sync::mpsc::channel::<RepoBusFactor>(10);
+    fn top_contributors(
+        mut repo_receiver: Receiver<Vec<REPO>>,
+        client: Arc<CLIENT>,
+        threshold: f32,
+    ) -> Receiver<BusFactor> {
+        let (bus_factor_sender, bus_factor_receiver) = tokio::sync::mpsc::channel::<BusFactor>(10);
         tokio::spawn(async move {
+            // for repo in repo_receiver.recv().await {
+            //     takio::spawn(async move {
+            //         let repo = BusFactor::bus_factor_for_repo(client.clone(), repo);
+            //     })
+            // }
+
             ReceiverStream::new(repo_receiver)
                 .flat_map(|repos| stream::iter(repos))
-                .map(|repo| BusFactor::bus_factor_for_repo(client.clone(), repo))
-                .for_each(|x| async {
-                    if let Some(p) = x.await {
+                .map(|repo| Self::bus_factor_for_repo(repo, client.clone(), threshold))
+                .for_each(|handle| async {
+                    if let Ok(Some(p)) = handle.await {
                         if let Err(err) = bus_factor_sender.send(p).await {
                             error!("Failure: {}", err);
                         }
@@ -126,15 +135,17 @@ where
         bus_factor_receiver
     }
 
-    async fn bus_factor_for_repo(client: Arc<CLIENT>, repo: REPO) -> Option<RepoBusFactor> {
-        client
-            .top_contributors(&repo, FIRST_PAGE_NUMBER, 25)
-            .await
-            .map(|contributors| bus_factor(contributors, repo.name().into(), 0.01))
-            .unwrap_or_else(|err| {
-                error!("Failed to get top contributors: {}", err);
-                None
-            })
+    fn bus_factor_for_repo(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
+        tokio::spawn(async move {
+            client
+                .top_contributors(&repo, FIRST_PAGE_NUMBER, 25)
+                .await
+                .map(|contributors| bus_factor(contributors, repo.name().into(), threshold))
+                .unwrap_or_else(|err| {
+                    error!("Failed to get top contributors: {}", err);
+                    None
+                })
+        })
     }
 }
 
@@ -144,7 +155,7 @@ where
 /// * `contributors` - List of `Contributor`s sorted by contributions in desc order
 /// * `repo` - Name of repository
 /// * `threshold` - contribution ratio threshold of top(first) contributor to total contributions of listed `contributors`
-fn bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<RepoBusFactor> {
+fn bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<BusFactor> {
     let top_contributor = contributors.get(0)?;
     let total_contributions = contributors
         .iter()
@@ -152,7 +163,7 @@ fn bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> 
         .fold(0, |acc, c| acc + c);
     let bus_factor = top_contributor.contributions as f32 / total_contributions as f32;
     if bus_factor >= threashold {
-        Some(RepoBusFactor::new(repo, top_contributor.name.to_string(), bus_factor))
+        Some(BusFactor::new(repo, top_contributor.name.to_string(), bus_factor))
     } else {
         None
     }
@@ -167,7 +178,7 @@ fn bus_factor_some_test() {
     ];
     let repo = "repo".to_string();
     let bus_factor = bus_factor(contributors, repo.clone(), 0.6);
-    assert_eq!(bus_factor, Some(RepoBusFactor::new(repo, "a".to_string(), 0.7)));
+    assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 0.7)));
 }
 
 #[test]
@@ -187,5 +198,5 @@ fn bus_factor_onedev_test() {
     let contributors = vec![Contributor::new("a", 7)];
     let repo = "repo".to_string();
     let bus_factor = bus_factor(contributors, repo.clone(), 0.99);
-    assert_eq!(bus_factor, Some(RepoBusFactor::new(repo, "a".to_string(), 1.0)));
+    assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 1.0)));
 }
