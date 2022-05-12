@@ -15,11 +15,11 @@
 use std::fmt::Debug;
 use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
-use clients::api::{Client, Contributor, Repo, Result};
+use clients::api::{Client, Contributor, Repo};
 use derive_new::new;
-use futures::{stream, SinkExt, StreamExt, TryStreamExt};
+use futures::{stream, StreamExt};
 use log::{debug, error};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -84,7 +84,7 @@ where
                     if page_num == FIRST_PAGE_NUMBER {
                         client.top_repos(lang.clone(), page_num, repo_count).await
                     } else {
-                        let mut repos = client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await;
+                        let repos = client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await;
                         repos.map(|v| Self::take_first_n(v, repo_count))
                     }
                 } else {
@@ -108,7 +108,7 @@ where
     }
 
     fn top_contributors(
-        mut repo_receiver: Receiver<Vec<REPO>>,
+        repo_receiver: Receiver<Vec<REPO>>,
         client: Arc<CLIENT>,
         threshold: f32,
     ) -> Receiver<BusFactor> {

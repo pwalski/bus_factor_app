@@ -1,11 +1,8 @@
 mod builder;
 mod payload;
 
-use std::fmt::Display;
-
-pub use builder::GithubClientBuilder;
-
 use async_trait::async_trait;
+pub use builder::GithubClientBuilder;
 use clients::api::Contributor;
 use clients::api::Result;
 use reqwest::Client;
