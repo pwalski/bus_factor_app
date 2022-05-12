@@ -122,7 +122,7 @@ where
 
             ReceiverStream::new(repo_receiver)
                 .flat_map(|repos| stream::iter(repos))
-                .map(|repo| Self::bus_factor_for_repo(repo, client.clone(), threshold))
+                .map(|repo| Self::repo_bus_factor(repo, client.clone(), threshold))
                 .for_each(|handle| async {
                     if let Ok(Some(p)) = handle.await {
                         if let Err(err) = bus_factor_sender.send(p).await {
@@ -135,12 +135,13 @@ where
         bus_factor_receiver
     }
 
-    fn bus_factor_for_repo(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
+    fn repo_bus_factor(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
+        // TODO add parameter
         tokio::spawn(async move {
             client
                 .top_contributors(&repo, FIRST_PAGE_NUMBER, 25)
                 .await
-                .map(|contributors| bus_factor(contributors, repo.name().into(), threshold))
+                .map(|contributors| contributors_bus_factor(contributors, repo.name().into(), threshold))
                 .unwrap_or_else(|err| {
                     error!("Failed to get top contributors: {}", err);
                     None
@@ -155,7 +156,7 @@ where
 /// * `contributors` - List of `Contributor`s sorted by contributions in desc order
 /// * `repo` - Name of repository
 /// * `threshold` - contribution ratio threshold of top(first) contributor to total contributions of listed `contributors`
-fn bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<BusFactor> {
+fn contributors_bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<BusFactor> {
     let top_contributor = contributors.get(0)?;
     let total_contributions = contributors
         .iter()
@@ -177,7 +178,7 @@ fn bus_factor_some_test() {
         Contributor::new("c", 1),
     ];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.6);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.6);
     assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 0.7)));
 }
 
@@ -189,7 +190,7 @@ fn bus_factor_none_test() {
         Contributor::new("c", 1),
     ];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.8);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.8);
     assert_eq!(bus_factor, None);
 }
 
@@ -197,6 +198,6 @@ fn bus_factor_none_test() {
 fn bus_factor_onedev_test() {
     let contributors = vec![Contributor::new("a", 7)];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.99);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.99);
     assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 1.0)));
 }

@@ -10,23 +10,23 @@ use tokio::sync::mpsc::Receiver;
 pub struct Args {
     /// Repositories language
     #[clap(short, long)]
-    language: String,
+    pub language: String,
 
     /// Number of times to greet
     #[clap(short, long)]
-    project_count: u32,
+    pub project_count: u32,
 
     /// API OAuth access token
     #[clap(long)]
-    api_token: Option<SecretString>,
+    pub api_token: Option<SecretString>,
 
     /// Repository API URL
     #[clap(long, default_value = "https://api.github.com")]
-    api_url: String,
+    pub api_url: String,
 
     /// Bus factor threshold
     #[clap(long, default_value_t = 0.75, parse(try_from_str=threshold_in_range))]
-    threshold: f32,
+    pub threshold: f32,
 }
 
 fn threshold_in_range(threshold: &str) -> clap::Result<f32, String> {
