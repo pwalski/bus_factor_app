@@ -2,7 +2,7 @@ use bus_factor::BusFactor;
 use bus_factor_app::calculate_bus_factor;
 use bus_factor_app::Args;
 use std::collections::VecDeque;
-use tokio;
+
 use wiremock::http::Method;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::Match;
@@ -110,12 +110,12 @@ async fn mock_contributors<'a>(
 
         // Other contributors
         for repo_contributor_index in 1..repo_contributors_count {
-            user_contributions = user_contributions - 1;
+            user_contributions -= 1;
             middle_coma(&mut body, repo_contributor_index, repo_contributors_count);
             let login = contributor_login(repo_index, repo_contributor_index);
             body.push_str(&contribution_body(&login, user_contributions));
         }
-        body.push_str(r#"]"#);
+        body.push(']');
 
         //TODO Figure out why wiremock path matcher does not work.
         let p = format!("/repos/owner_{}/repo_{}/contributors", repo_index, repo_index);
@@ -124,7 +124,7 @@ async fn mock_contributors<'a>(
             .mount(server)
             .await;
     }
-    return bus_factors;
+    bus_factors
 }
 
 //TODO Delete it and use proper path matcher
@@ -145,6 +145,6 @@ fn contributor_login(repo_index: u32, repo_contributor_index: u32) -> String {
 
 fn middle_coma(body: &mut String, index: u32, end: u32) {
     if index < end {
-        body.push_str(",");
+        body.push(',');
     }
 }

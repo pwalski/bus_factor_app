@@ -6,6 +6,8 @@ pub use builder::GithubClientBuilder;
 use clients::api::Contributor;
 use clients::api::Result;
 use reqwest::Client;
+use reqwest::Response;
+use serde::de::DeserializeOwned;
 
 pub struct GithubClient {
     client: Client,
@@ -41,7 +43,7 @@ impl clients::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
             ])
             .send()
             .await?;
-        let response = response.json::<payload::SearchRepos>().await?;
+        let response: payload::SearchRepos = read_response(response).await?;
         let response = response.items.into_iter().map(GithubRepo::from).collect();
         Ok(response)
     }
@@ -58,36 +60,13 @@ impl clients::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
             ])
             .send()
             .await?;
-        let response = response.json::<Vec<payload::Contributor>>().await?;
+        let response: Vec<payload::Contributor> = read_response(response).await?;
         let response = response.into_iter().map(Contributor::from).collect();
         Ok(response)
     }
 }
-#[cfg(test)]
-mod tests {
-    use crate::{GithubClientBuilder, GithubRepo};
-    use clients::api::Client;
 
-    // #[tokio::test]
-    async fn naive_bad_top_repos_test() -> Result<(), anyhow::Error> {
-        let client = GithubClientBuilder::default().try_with_user_agent("curl")?.build()?;
-        let res = client.top_repos("rust".to_string(), 1, 25).await?;
-        assert!(res.len() == 25);
-        assert_eq!(res[0].name, "deno");
-        Ok(())
-    }
-
-    // #[tokio::test]
-    async fn naive_bad_top_contributors_test() -> Result<(), anyhow::Error> {
-        let client = GithubClientBuilder::default().try_with_user_agent("curl")?.build()?;
-        let repo = GithubRepo {
-            name: "deno".into(),
-            owner: "denoland".into(),
-        };
-        let res = client.top_contributors(&repo, 1, 5).await?;
-        assert!(res.len() == 5);
-        assert_eq!(res[0].name, "ry");
-        assert_eq!(res[0].contributions, 1396);
-        Ok(())
-    }
+async fn read_response<PAYLOAD: DeserializeOwned>(response: Response) -> reqwest::Result<PAYLOAD> {
+    let response = response.error_for_status()?;
+    response.json::<PAYLOAD>().await
 }
