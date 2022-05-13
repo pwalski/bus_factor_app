@@ -80,27 +80,41 @@ where
         let mut page_num = FIRST_PAGE_NUMBER;
         tokio::spawn(async move {
             while repo_count > 0 {
-                let repos = if repo_count < MAX_REPOS_PAGE {
-                    if page_num == FIRST_PAGE_NUMBER {
-                        client.top_repos(lang.clone(), page_num, repo_count).await
-                    } else {
-                        let repos = client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await;
-                        repos.map(|v| Self::take_first_n(v, repo_count))
+                match Self::top_repos_page(&client, &lang, repo_count, page_num).await {
+                    Ok(repos) => {
+                        debug!("Got {} repositories", repos.len());
+                        if let Err(err) = sender.send(repos).await {
+                            error!("Failed to process repositories: {}", err);
+                        }
+                        page_num = page_num + 1;
+                        repo_count = std::cmp::max(repo_count, MAX_REPOS_PAGE) - MAX_REPOS_PAGE;
                     }
-                } else {
-                    client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await
-                };
-                for repo in repos {
-                    debug!("Found {} repositories", repo.len());
-                    if let Err(err) = sender.send(repo).await {
-                        error!("Failed to get top repositories: {}", err);
+                    Err(err) => {
+                        error!("Failed to get repositories: {}", err);
+                        break;
                     }
                 }
-                page_num = page_num + 1;
-                repo_count = std::cmp::max(repo_count, MAX_REPOS_PAGE) - MAX_REPOS_PAGE;
             }
         });
         receiver
+    }
+
+    async fn top_repos_page(
+        client: &Arc<CLIENT>,
+        lang: impl Into<String>,
+        repo_count: u32,
+        page_num: u32,
+    ) -> clients::api::Result<Vec<REPO>> {
+        if repo_count < MAX_REPOS_PAGE {
+            if page_num == FIRST_PAGE_NUMBER {
+                client.top_repos(lang.into(), page_num, repo_count).await
+            } else {
+                let repos = client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await;
+                repos.map(|v| Self::take_first_n(v, repo_count))
+            }
+        } else {
+            client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await
+        }
     }
 
     fn take_first_n<T>(v: Vec<T>, n: u32) -> Vec<T> {
@@ -114,12 +128,6 @@ where
     ) -> Receiver<BusFactor> {
         let (bus_factor_sender, bus_factor_receiver) = tokio::sync::mpsc::channel::<BusFactor>(10);
         tokio::spawn(async move {
-            // for repo in repo_receiver.recv().await {
-            //     takio::spawn(async move {
-            //         let repo = BusFactor::bus_factor_for_repo(client.clone(), repo);
-            //     })
-            // }
-
             ReceiverStream::new(repo_receiver)
                 .flat_map(|repos| stream::iter(repos))
                 .map(|repo| Self::repo_bus_factor(repo, client.clone(), threshold))
@@ -162,12 +170,18 @@ fn contributors_bus_factor(contributors: Vec<Contributor>, repo: String, threash
         .iter()
         .map(|contributor| contributor.contributions)
         .fold(0, |acc, c| acc + c);
-    let bus_factor = top_contributor.contributions as f32 / total_contributions as f32;
+    let bus_factor = calculate_percentage(top_contributor.contributions, total_contributions);
     if bus_factor >= threashold {
         Some(BusFactor::new(repo, top_contributor.name.to_string(), bus_factor))
     } else {
         None
     }
+}
+
+/// Produces float from range [0.0,1.1] rounded to two decimal points.
+fn calculate_percentage(contributions: u32, total_contributions: u32) -> f32 {
+    let bus_factor = contributions as f32 / total_contributions as f32;
+    (&format!("{0:.1$}", bus_factor, 2)).parse().unwrap() //TODO probably there is a smarter way to do this...
 }
 
 #[test]
