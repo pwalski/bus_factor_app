@@ -10,7 +10,7 @@
 //! Given a programming language name (`language`) and a repository count (`repo_count`), library fetches the first `repo_count` most popular repositories (sorted by the number of GitHub stars) from the given language.
 //! Then, for each repository, it inspect its contributor statistics.
 //! We assume a repository's bus factor is 1 if its most active developer's contributions account for 75% or more of the total contributions count from the top 25 most active developers.
-//! repositories with a bus factor of 75% or higher are returned as a Result.
+//! Repositories with a bus factor of 75% or higher are returned as a Result.
 
 use std::fmt::Debug;
 use std::{fmt::Display, marker::PhantomData, sync::Arc};
@@ -80,27 +80,41 @@ where
         let mut page_num = FIRST_PAGE_NUMBER;
         tokio::spawn(async move {
             while repo_count > 0 {
-                let repos = if repo_count < MAX_REPOS_PAGE {
-                    if page_num == FIRST_PAGE_NUMBER {
-                        client.top_repos(lang.clone(), page_num, repo_count).await
-                    } else {
-                        let repos = client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await;
-                        repos.map(|v| Self::take_first_n(v, repo_count))
+                match Self::top_repos_page(&client, &lang, repo_count, page_num).await {
+                    Ok(repos) => {
+                        debug!("Got {} repositories", repos.len());
+                        if let Err(err) = sender.send(repos).await {
+                            error!("Failed to process repositories: {}", err);
+                        }
+                        page_num = page_num + 1;
+                        repo_count = std::cmp::max(repo_count, MAX_REPOS_PAGE) - MAX_REPOS_PAGE;
                     }
-                } else {
-                    client.top_repos(lang.clone(), page_num, MAX_REPOS_PAGE).await
-                };
-                for repo in repos {
-                    debug!("Found {} repositories", repo.len());
-                    if let Err(err) = sender.send(repo).await {
-                        error!("Failed to get top repositories: {}", err);
+                    Err(err) => {
+                        error!("Failed to get repositories: {}", err);
+                        break;
                     }
                 }
-                page_num = page_num + 1;
-                repo_count = std::cmp::max(repo_count, MAX_REPOS_PAGE) - MAX_REPOS_PAGE;
             }
         });
         receiver
+    }
+
+    async fn top_repos_page(
+        client: &Arc<CLIENT>,
+        lang: impl Into<String>,
+        repo_count: u32,
+        page_num: u32,
+    ) -> clients::api::Result<Vec<REPO>> {
+        if repo_count < MAX_REPOS_PAGE {
+            if page_num == FIRST_PAGE_NUMBER {
+                client.top_repos(lang.into(), page_num, repo_count).await
+            } else {
+                let repos = client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await;
+                repos.map(|v| Self::take_first_n(v, repo_count))
+            }
+        } else {
+            client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await
+        }
     }
 
     fn take_first_n<T>(v: Vec<T>, n: u32) -> Vec<T> {
@@ -114,15 +128,9 @@ where
     ) -> Receiver<BusFactor> {
         let (bus_factor_sender, bus_factor_receiver) = tokio::sync::mpsc::channel::<BusFactor>(10);
         tokio::spawn(async move {
-            // for repo in repo_receiver.recv().await {
-            //     takio::spawn(async move {
-            //         let repo = BusFactor::bus_factor_for_repo(client.clone(), repo);
-            //     })
-            // }
-
             ReceiverStream::new(repo_receiver)
                 .flat_map(|repos| stream::iter(repos))
-                .map(|repo| Self::bus_factor_for_repo(repo, client.clone(), threshold))
+                .map(|repo| Self::repo_bus_factor(repo, client.clone(), threshold))
                 .for_each(|handle| async {
                     if let Ok(Some(p)) = handle.await {
                         if let Err(err) = bus_factor_sender.send(p).await {
@@ -135,12 +143,13 @@ where
         bus_factor_receiver
     }
 
-    fn bus_factor_for_repo(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
+    fn repo_bus_factor(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
+        // TODO add parameter
         tokio::spawn(async move {
             client
                 .top_contributors(&repo, FIRST_PAGE_NUMBER, 25)
                 .await
-                .map(|contributors| bus_factor(contributors, repo.name().into(), threshold))
+                .map(|contributors| contributors_bus_factor(contributors, repo.name().into(), threshold))
                 .unwrap_or_else(|err| {
                     error!("Failed to get top contributors: {}", err);
                     None
@@ -155,18 +164,24 @@ where
 /// * `contributors` - List of `Contributor`s sorted by contributions in desc order
 /// * `repo` - Name of repository
 /// * `threshold` - contribution ratio threshold of top(first) contributor to total contributions of listed `contributors`
-fn bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<BusFactor> {
+fn contributors_bus_factor(contributors: Vec<Contributor>, repo: String, threashold: f32) -> Option<BusFactor> {
     let top_contributor = contributors.get(0)?;
     let total_contributions = contributors
         .iter()
         .map(|contributor| contributor.contributions)
         .fold(0, |acc, c| acc + c);
-    let bus_factor = top_contributor.contributions as f32 / total_contributions as f32;
+    let bus_factor = calculate_percentage(top_contributor.contributions, total_contributions);
     if bus_factor >= threashold {
         Some(BusFactor::new(repo, top_contributor.name.to_string(), bus_factor))
     } else {
         None
     }
+}
+
+/// Produces float from range [0.0,1.1] rounded to two decimal points.
+fn calculate_percentage(contributions: u32, total_contributions: u32) -> f32 {
+    let bus_factor = contributions as f32 / total_contributions as f32;
+    (&format!("{0:.1$}", bus_factor, 2)).parse().unwrap() //TODO probably there is a smarter way to do this...
 }
 
 #[test]
@@ -177,7 +192,7 @@ fn bus_factor_some_test() {
         Contributor::new("c", 1),
     ];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.6);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.6);
     assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 0.7)));
 }
 
@@ -189,7 +204,7 @@ fn bus_factor_none_test() {
         Contributor::new("c", 1),
     ];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.8);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.8);
     assert_eq!(bus_factor, None);
 }
 
@@ -197,6 +212,6 @@ fn bus_factor_none_test() {
 fn bus_factor_onedev_test() {
     let contributors = vec![Contributor::new("a", 7)];
     let repo = "repo".to_string();
-    let bus_factor = bus_factor(contributors, repo.clone(), 0.99);
+    let bus_factor = contributors_bus_factor(contributors, repo.clone(), 0.99);
     assert_eq!(bus_factor, Some(BusFactor::new(repo, "a".to_string(), 1.0)));
 }
