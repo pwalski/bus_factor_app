@@ -10,7 +10,7 @@
 //! Given a programming language name (`language`) and a repository count (`repo_count`), library fetches the first `repo_count` most popular repositories (sorted by the number of GitHub stars) from the given language.
 //! Then, for each repository, it inspect its contributor statistics.
 //! We assume a repository's bus factor is 1 if its most active developer's contributions account for 75% or more of the total contributions count from the top 25 most active developers.
-//! repositories with a bus factor of 75% or higher are returned as a Result.
+//! Repositories with a bus factor of 75% or higher are returned as a Result.
 
 use std::fmt::Debug;
 use std::{fmt::Display, marker::PhantomData, sync::Arc};

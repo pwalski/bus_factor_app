@@ -1,0 +1,25 @@
+on: [push]
+
+name: CI
+
+jobs:
+  build_and_test:
+    name: BusFactor App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout
+      - uses: actions-rs/toolchain@v1
+        name: Toolchain
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        name: Check
+        with:
+          command: check
+          args: --all --all-features
+      - uses: actions-rs/cargo@v1
+        name: Test
+        with:
+          command: test
+          args: --all --all-features

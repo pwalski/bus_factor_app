@@ -1,37 +1,24 @@
-on: [push]
+on:
+  release:
+    types: [created]
 
-name: CI
+name: Release
 
 jobs:
-  build_and_test:
-    name: Rust project
+  release:
+    name: Release ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - target: x86_64-pc-windows-gnu
-            archive: zip
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz tar.xz
-          - target: x86_64-apple-darwin
-            archive: zip
+        target:
+          [
+            x86_64-pc-windows-gnu,
+            x86_64-unknown-linux-musl,
+            x86_64-apple-darwin,
+          ]
     steps:
-      - uses: actions/checkout@v2
-        name: Checkout
-      - uses: actions-rs/toolchain@v1
-        name: Toolchain
-        with:
-          toolchain: stable
-      - uses: actions-rs/cargo@v1
-        name: Check
-        with:
-          command: check
-          args: --all --all-features
-      - uses: actions-rs/cargo@v1
-        name: Test
-        with:
-          command: test
-          args: --all --all-features
+      - uses: actions/checkout@master
       - name: Release
         uses: rust-build/rust-build.action@v1.3.2
         env:
