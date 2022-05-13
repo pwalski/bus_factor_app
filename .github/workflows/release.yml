@@ -8,18 +8,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        name: Checkout
       - uses: actions-rs/toolchain@v1
+        name: Toolchain
         with:
           toolchain: stable
       - uses: actions-rs/cargo@v1
+        name: Cargo check
         with:
           command: check
           args: --all --all-features
       - uses: actions-rs/cargo@v1
+        name: Cargo test
         with:
           command: test
           args: --all --all-features
       - uses: actions-rs/cargo@v1
+        name: Cargo build
         with:
           command: build
           args: --release --all-features
