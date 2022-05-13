@@ -11,11 +11,13 @@
 cargo build
 ```
 
-Quick run with low threshold (default 0.75 requires many projects to check)
+Quick run with default threshold (0.75).
 
 ```shell
-target/debug/bus_factor --language rust --project-count 5 --threshold 0.3
+target/debug/bus_factor --language rust --project-count 10
 ```
+
+Use `--help` to check other params (like `--api-token`).
 
 ### Update of README.md
 
