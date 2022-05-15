@@ -9,11 +9,13 @@ use reqwest::Client;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
 
+#[derive(Clone)]
 pub struct GithubClient {
     client: Client,
     github_url: String,
 }
 
+#[derive(Debug)]
 pub struct GithubRepo {
     name: String,
     owner: String,

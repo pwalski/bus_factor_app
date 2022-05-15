@@ -1,6 +1,5 @@
-use std::fmt::Display;
-
 use async_trait::async_trait;
+use std::fmt::{Debug, Display};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,7 +15,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait Repo: Send + Sync {
+pub trait Repo: Send + Sync + Debug {
     type T: Into<String> + Display;
     fn name(&self) -> Self::T;
 }
@@ -38,7 +37,7 @@ impl Contributor {
 // TODO Just realized exposing `per_page` is dumb, because there is no point in changing it after first page.
 #[async_trait]
 pub trait Client<REPO: Repo, const MAX_REPOS_PAGE: u32, const MAX_CONTRIBUTORS_PAGE: u32, const FIRST_PAGE_NUMBER: u32>:
-    Send + Sync
+    Clone + Send + Sync
 {
     async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<REPO>>;
 

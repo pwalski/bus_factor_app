@@ -1,9 +1,9 @@
-use bus_factor::{BusFactor, BusFactorCalculator};
+use bus_factor::{BusFactorCalculator, BusFactorStream};
 use clap::Parser;
 use clients::api::Result;
 use github_client::GithubClientBuilder;
 use secrecy::SecretString;
-use tokio::sync::mpsc::Receiver;
+
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -41,7 +41,7 @@ fn threshold_in_range(threshold: &str) -> clap::Result<f32, String> {
         })
 }
 
-pub async fn calculate_bus_factor(args: Args) -> Result<Receiver<BusFactor>> {
+pub fn calculate_bus_factor(args: Args) -> Result<BusFactorStream> {
     env_logger::init();
 
     let mut client = GithubClientBuilder::default().with_github_url(args.api_url);
@@ -49,9 +49,6 @@ pub async fn calculate_bus_factor(args: Args) -> Result<Receiver<BusFactor>> {
         client = client.try_with_token(token)?;
     }
     let client = client.build()?;
-
     let calculator = BusFactorCalculator::new(client, args.threshold);
-    let receiver = calculator.calculate(args.language, args.project_count);
-
-    Ok(receiver)
+    Ok(calculator.calculate(args.language, args.project_count))
 }

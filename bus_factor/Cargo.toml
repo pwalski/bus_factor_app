@@ -6,10 +6,9 @@ license = "MIT"
 
 [dependencies]
 clients = { path = "../clients" }
-derive-new = "0.5"
+derive_more = "0.99"
 futures = { version = "0.3", features = ["std"] }
 github_client = { path = "../clients/github" }
 log = "0.4"
 thiserror = "1.0"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread", "sync"] }
-tokio-stream = { version = "0.1", features = ["tokio-util"] }

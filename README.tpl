@@ -1,7 +1,6 @@
-[![build status](https://github.com/pwalski/bus_factor_app/actions/workflows/ci.yml/badge.svg)](https://github.com/pwalski/bus_factor_app/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE.md)
 
-# {{crate}}
+
+# {{crate}} &emsp; [![build status](https://github.com/pwalski/bus_factor_app/actions/workflows/ci.yml/badge.svg)](https://github.com/pwalski/bus_factor_app/actions)[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE.md)
 
 {{readme}}
 
@@ -23,7 +22,7 @@ Use `--help` to check other params (like `--api-token`).
 
 ```shell
 cargo install cargo-readme
-cargo readme --project-root bus_factor > README.md
+cargo readme -r bus_factor -t ../README.tpl > README.md
 ```
 
 ---
