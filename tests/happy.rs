@@ -14,14 +14,16 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const MAX_REPOS_PAGE: u32 = 100;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn happy_path_500() {
+async fn happy_path_300() {
     let server = MockServer::start().await;
 
-    const REPOS_COUNT: u32 = 500;
+    const REPOS_COUNT: u32 = 300;
     // Every Nth repo will have a large bus factor
     const BUS_FACTOR_DIVISOR: u32 = 5;
     const REPO_CONTRBRS_COUNT: u32 = 25;
     const LANG: &str = "rust";
+
+    mock_rate_limit(&server).await;
 
     mock_repos(&server, REPOS_COUNT, LANG.to_string()).await;
 
@@ -38,7 +40,7 @@ async fn happy_path_500() {
         max_contrib_req: 10,
     };
 
-    let calculated_bus_factors: Vec<BusFactor> = calculate_bus_factor(args).unwrap().collect().await;
+    let calculated_bus_factors: Vec<BusFactor> = calculate_bus_factor(args).await.unwrap().collect().await;
 
     assert_eq!(
         expected_bus_factors.len(),
@@ -53,6 +55,29 @@ async fn happy_path_500() {
             panic!("Got unexpected result: {}", bus_factor);
         }
     }
+}
+
+async fn mock_rate_limit<'a>(server: &'a MockServer) {
+    let body = String::from(
+        r#"{ 
+            "resources": {
+                "core": { "limit": 9000, "used": 0 },
+                "search": { "limit": 9000, "used": 0 }
+            }
+        }"#,
+    );
+    let duration = rand::thread_rng().gen_range(1..10);
+    let duration = Duration::from_millis(duration);
+    Mock::given(method("GET"))
+        .and(path("/rate_limit"))
+        .and(header("Accept", "application/vnd.github.v3+json"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_raw(body, "application/json")
+                .set_delay(duration),
+        )
+        .mount(server)
+        .await;
 }
 
 async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) {
@@ -80,7 +105,7 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
             r#"]
                 }"#,
         );
-        let duration = rand::thread_rng().gen_range(10..50);
+        let duration = rand::thread_rng().gen_range(3..15);
         let duration = Duration::from_millis(duration);
         Mock::given(method("GET"))
             .and(path("/search/repositories"))
@@ -130,7 +155,7 @@ async fn mock_contributors<'a>(
         }
         body.push(']');
 
-        let duration = rand::thread_rng().gen_range(5..20);
+        let duration = rand::thread_rng().gen_range(3..10);
         let duration = Duration::from_millis(duration);
         //TODO Figure out why wiremock path matcher does not work.
         let p = format!("/repos/owner_{}/repo_{}/contributors", repo_index, repo_index);

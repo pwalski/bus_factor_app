@@ -12,16 +12,15 @@
 //! We assume a repository's bus factor is 1 if its most active developer's contributions account for 75% or more of the total contributions count from the top 25 most active developers.
 //! Repositories with a bus factor of 75% or higher are returned as a Result.
 
-use std::fmt::Debug;
-use std::ops::AddAssign;
-use std::pin::Pin;
-use std::{fmt::Display, marker::PhantomData, sync::Arc};
-
 use clients::api::{Client, Contributor, Repo};
 use derive_more::Constructor;
 use futures::task::Poll;
 use futures::{stream, Stream, StreamExt};
 use log::error;
+use std::fmt::Debug;
+use std::ops::AddAssign;
+use std::pin::Pin;
+use std::{fmt::Display, marker::PhantomData, sync::Arc};
 use tokio::task::JoinHandle;
 
 #[derive(Debug, PartialEq, Constructor)]

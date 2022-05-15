@@ -1,5 +1,3 @@
-
-
 # bus_factor &emsp; [![build status](https://github.com/pwalski/bus_factor_app/actions/workflows/ci.yml/badge.svg)](https://github.com/pwalski/bus_factor_app/actions)[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE.md)
 
 Bus factor estimation
@@ -18,14 +16,10 @@ Repositories with a bus factor of 75% or higher are returned as a Result.
 
 ## Examples
 
-```shell
-cargo build
-```
-
-Quick run with default threshold (0.75).
+Sample run with default threshold (0.75).
 
 ```shell
-target/debug/bus_factor --language rust --project-count 10
+cargo run -- --language rust --project-count 50
 ```
 
 Use `--help` to check other params (like `--api-token`).

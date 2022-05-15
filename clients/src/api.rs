@@ -9,6 +9,8 @@ pub enum Error {
     // the only reason of `reqwest` dependency..
     #[error("Request error: {0}")]
     RequestError(#[from] reqwest::Error),
+    #[error("Url parse error: {0}")]
+    UrlParseError(#[from] url::ParseError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -37,7 +39,7 @@ impl Contributor {
 // TODO Just realized exposing `per_page` is dumb, because there is no point in changing it after first page.
 #[async_trait]
 pub trait Client<REPO: Repo, const MAX_REPOS_PAGE: u32, const MAX_CONTRIBUTORS_PAGE: u32, const FIRST_PAGE_NUMBER: u32>:
-    Clone + Send + Sync
+    Send + Sync
 {
     async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<REPO>>;
 

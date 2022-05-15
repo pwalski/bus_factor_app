@@ -1,12 +1,23 @@
+use crate::payload::RateLimit;
+use crate::payload::RateLimitResource;
+use crate::payload::RateLimitResources;
+use crate::GithubClient;
 use clients::api::Result;
 use reqwest::header;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
+use reqwest::Client;
 use reqwest::ClientBuilder;
+use reqwest::Request;
+use reqwest::Response;
 use secrecy::ExposeSecret;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
+use tower::util::BoxService;
+use tower::{service_fn, ServiceExt};
 
-use crate::GithubClient;
 pub struct GithubClientBuilder {
     client_builder: ClientBuilder,
     github_url: String,
@@ -48,9 +59,40 @@ impl GithubClientBuilder {
         Ok(self)
     }
 
-    pub fn build(self) -> Result<GithubClient> {
+    pub async fn build(self) -> Result<GithubClient> {
         let client = self.client_builder.default_headers(self.headers).build()?;
         let github_url = self.github_url;
-        Ok(GithubClient { client, github_url })
+        let rate_limit = rate_limit(&client, &github_url).await?;
+        let repo_service = rate_limited_service(client.clone(), &rate_limit.search)?;
+        let contrib_service = rate_limited_service(client.clone(), &rate_limit.core)?;
+        Ok(GithubClient {
+            repo_service: Arc::new(Mutex::new(repo_service)),
+            contrib_service: Arc::new(Mutex::new(contrib_service)),
+            github_url,
+        })
     }
+}
+
+async fn rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::Result<RateLimitResources> {
+    let request_url = format!("{}/rate_limit", github_url.into());
+    let response = client.get(request_url).send().await?;
+    crate::read_response::<RateLimit>(response)
+        .await
+        .map(|resources| resources.resources)
+}
+
+fn rate_limited_service(
+    client: Client,
+    limit: &RateLimitResource,
+) -> Result<BoxService<Request, Response, reqwest::Error>> {
+    let limit = limit.limit - limit.used;
+    if limit == 0 {
+        return Err(clients::api::Error::Error("API rate limits reached."));
+    }
+    //TODO Make use from `RateLimitResource::used` field. Do not assume 1 min duration.
+    let service = tower::ServiceBuilder::new()
+        .rate_limit(limit as u64, Duration::from_secs(61))
+        .service(service_fn(move |req| client.execute(req)))
+        .boxed();
+    Ok(service)
 }
