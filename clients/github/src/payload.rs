@@ -39,3 +39,20 @@ impl From<Contributor> for clients::api::Contributor {
         }
     }
 }
+
+#[derive(Deserialize, Debug)]
+pub struct RateLimit {
+    pub resources: RateLimitResources,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RateLimitResources {
+    pub core: RateLimitResource,
+    pub search: RateLimitResource,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RateLimitResource {
+    pub limit: u32,
+    pub used: u32,
+}

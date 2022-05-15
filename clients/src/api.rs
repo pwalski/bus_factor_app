@@ -1,6 +1,5 @@
-use std::fmt::Display;
-
 use async_trait::async_trait;
+use std::fmt::{Debug, Display};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,13 +9,15 @@ pub enum Error {
     // the only reason of `reqwest` dependency..
     #[error("Request error: {0}")]
     RequestError(#[from] reqwest::Error),
+    #[error("Url parse error: {0}")]
+    UrlParseError(#[from] url::ParseError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub trait Repo: Send + Sync {
+pub trait Repo: Send + Sync + Debug {
     type T: Into<String> + Display;
     fn name(&self) -> Self::T;
 }

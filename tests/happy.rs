@@ -1,8 +1,10 @@
 use bus_factor::BusFactor;
 use bus_factor_app::calculate_bus_factor;
 use bus_factor_app::Args;
+use futures::StreamExt;
+use rand::Rng;
 use std::collections::VecDeque;
-
+use std::time::Duration;
 use wiremock::http::Method;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::Match;
@@ -15,15 +17,18 @@ const MAX_REPOS_PAGE: u32 = 100;
 async fn happy_path_300() {
     let server = MockServer::start().await;
 
-    const REPOS_COUNT: u32 = 1000;
+    const REPOS_COUNT: u32 = 300;
     // Every Nth repo will have a large bus factor
     const BUS_FACTOR_DIVISOR: u32 = 5;
     const REPO_CONTRBRS_COUNT: u32 = 25;
     const LANG: &str = "rust";
 
+    mock_rate_limit(&server).await;
+
     mock_repos(&server, REPOS_COUNT, LANG.to_string()).await;
 
-    let mut bus_factors = mock_contributors(&server, REPOS_COUNT, REPO_CONTRBRS_COUNT, BUS_FACTOR_DIVISOR).await;
+    let mut expected_bus_factors =
+        mock_contributors(&server, REPOS_COUNT, REPO_CONTRBRS_COUNT, BUS_FACTOR_DIVISOR).await;
 
     let args = Args {
         language: LANG.to_string(),
@@ -31,21 +36,48 @@ async fn happy_path_300() {
         api_token: None,
         api_url: server.uri(),
         threshold: 0.75,
+        max_repo_req: 1,
+        max_contrib_req: 10,
     };
 
-    let mut receiver = calculate_bus_factor(args).await.unwrap();
+    let calculated_bus_factors: Vec<BusFactor> = calculate_bus_factor(args).await.unwrap().collect().await;
 
-    while let Some(factor) = receiver.recv().await {
-        if let Some(expected_factor) = bus_factors.pop_front() {
-            assert_eq!(factor, expected_factor);
+    assert_eq!(
+        expected_bus_factors.len(),
+        calculated_bus_factors.len(),
+        "Every BUS_FACTOR_DIVISOR-th repo should have a bus factor"
+    );
+
+    for bus_factor in calculated_bus_factors {
+        if let Some(expected_factor) = expected_bus_factors.pop_front() {
+            assert_eq!(bus_factor, expected_factor);
         } else {
-            panic!("Got unexpected result: {}", factor);
+            panic!("Got unexpected result: {}", bus_factor);
         }
     }
-    assert!(
-        bus_factors.is_empty(),
-        "Every BUS_FACTOR_DIVISOR-th repo should has a bus factor over threshold and it should be reported"
+}
+
+async fn mock_rate_limit<'a>(server: &'a MockServer) {
+    let body = String::from(
+        r#"{ 
+            "resources": {
+                "core": { "limit": 9000, "used": 0 },
+                "search": { "limit": 9000, "used": 0 }
+            }
+        }"#,
     );
+    let duration = rand::thread_rng().gen_range(1..10);
+    let duration = Duration::from_millis(duration);
+    Mock::given(method("GET"))
+        .and(path("/rate_limit"))
+        .and(header("Accept", "application/vnd.github.v3+json"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_raw(body, "application/json")
+                .set_delay(duration),
+        )
+        .mount(server)
+        .await;
 }
 
 async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) {
@@ -73,6 +105,8 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
             r#"]
                 }"#,
         );
+        let duration = rand::thread_rng().gen_range(3..15);
+        let duration = Duration::from_millis(duration);
         Mock::given(method("GET"))
             .and(path("/search/repositories"))
             .and(query_param("q", format!("language:{}", lang)))
@@ -81,7 +115,11 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
             .and(query_param("per_page", format!("{}", MAX_REPOS_PAGE)))
             .and(query_param("page", format!("{}", repo_page + 1)))
             .and(header("Accept", "application/vnd.github.v3+json"))
-            .respond_with(ResponseTemplate::new(200).set_body_raw(body, "application/json"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_raw(body, "application/json")
+                    .set_delay(duration),
+            )
             .mount(server)
             .await;
     }
@@ -117,10 +155,16 @@ async fn mock_contributors<'a>(
         }
         body.push(']');
 
+        let duration = rand::thread_rng().gen_range(3..10);
+        let duration = Duration::from_millis(duration);
         //TODO Figure out why wiremock path matcher does not work.
         let p = format!("/repos/owner_{}/repo_{}/contributors", repo_index, repo_index);
         Mock::given(GetPathMatcher(p))
-            .respond_with(ResponseTemplate::new(200).set_body_raw(body, "application/json"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_raw(body, "application/json")
+                    .set_delay(duration),
+            )
             .mount(server)
             .await;
     }

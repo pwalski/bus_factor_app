@@ -12,18 +12,18 @@
 //! We assume a repository's bus factor is 1 if its most active developer's contributions account for 75% or more of the total contributions count from the top 25 most active developers.
 //! Repositories with a bus factor of 75% or higher are returned as a Result.
 
-use std::fmt::Debug;
-use std::{fmt::Display, marker::PhantomData, sync::Arc};
-
 use clients::api::{Client, Contributor, Repo};
-use derive_new::new;
-use futures::{stream, StreamExt};
-use log::{debug, error};
-use tokio::sync::mpsc::Receiver;
+use derive_more::Constructor;
+use futures::task::Poll;
+use futures::{stream, Stream, StreamExt};
+use log::error;
+use std::fmt::Debug;
+use std::ops::AddAssign;
+use std::pin::Pin;
+use std::{fmt::Display, marker::PhantomData, sync::Arc};
 use tokio::task::JoinHandle;
-use tokio_stream::wrappers::ReceiverStream;
 
-#[derive(Debug, PartialEq, new)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct BusFactor {
     repo: String,
     contributor: String,
@@ -38,6 +38,39 @@ impl Display for BusFactor {
         ))
     }
 }
+
+#[derive(Constructor)]
+struct Page {
+    page_no: u32,
+    page_size: u32,
+}
+#[derive(Constructor)]
+struct Paginator {
+    page_no: u32,
+    max_page_size: u32,
+    remaining: u32,
+}
+
+impl Paginator {
+    fn next_page(&mut self) -> Option<Page> {
+        let page_no = self.page_no;
+        match self.remaining {
+            0 => None,
+            remaining if remaining <= self.max_page_size => {
+                self.page_no.add_assign(1);
+                self.remaining = 0;
+                Some(Page::new(page_no, remaining))
+            }
+            _ => {
+                self.page_no.add_assign(1);
+                self.remaining = self.remaining - self.max_page_size;
+                Some(Page::new(page_no, self.max_page_size))
+            }
+        }
+    }
+}
+
+pub type BusFactorStream = Pin<Box<dyn Stream<Item = BusFactor> + std::marker::Send>>;
 pub struct BusFactorCalculator<
     REPO,
     const MAX_REPOS_PAGE: u32,
@@ -60,60 +93,75 @@ where
     CLIENT: 'static + Client<REPO, MAX_REPOS_PAGE, MAX_CONTRIBUTORS_PAGE, FIRST_PAGE_NUMBER>,
 {
     pub fn new(client: CLIENT, threshold: f32) -> Self {
-        let client = Arc::new(client);
         let _repo_type = PhantomData::default();
         BusFactorCalculator {
-            client,
+            client: Arc::new(client),
             threshold,
             _repo_type,
         }
     }
 
-    pub fn calculate(&self, lang: String, repo_count: u32) -> Receiver<BusFactor> {
-        let repo_receiver = Self::top_repos(self.client.clone(), lang, repo_count);
-        let bus_factor_receiver = Self::top_contributors(repo_receiver, self.client.clone(), self.threshold);
-        return bus_factor_receiver;
-    }
-
-    fn top_repos(client: Arc<CLIENT>, lang: String, mut repo_count: u32) -> Receiver<Vec<REPO>> {
-        let (sender, receiver) = tokio::sync::mpsc::channel::<Vec<REPO>>(1);
-        let mut page_num = FIRST_PAGE_NUMBER;
-        tokio::spawn(async move {
-            while repo_count > 0 {
-                match Self::top_repos_page(&client, &lang, repo_count, page_num).await {
-                    Ok(repos) => {
-                        debug!("Got {} repositories", repos.len());
-                        if let Err(err) = sender.send(repos).await {
-                            error!("Failed to process repositories: {}", err);
-                        }
-                        page_num = page_num + 1;
-                        repo_count = std::cmp::max(repo_count, MAX_REPOS_PAGE) - MAX_REPOS_PAGE;
-                    }
-                    Err(err) => {
-                        error!("Failed to get repositories: {}", err);
-                        break;
+    pub fn calculate(
+        self,
+        lang: String,
+        repo_count: u32,
+        max_repo_requests: usize,
+        max_contrib_requests: usize,
+    ) -> BusFactorStream {
+        Self::top_repos(self.client.clone(), lang, repo_count)
+            .buffered(max_repo_requests)
+            .flat_map(|repos| {
+                match repos {
+                    Ok(Ok(repos)) => stream::iter(repos),
+                    err => {
+                        error!("Failed to get top repositories: {:?}", err);
+                        stream::iter(Vec::new()) //TODO how to return stream::empty() ???
                     }
                 }
-            }
-        });
-        receiver
+            })
+            .map(move |r| Self::repo_bus_factor(r, self.client.clone(), self.threshold))
+            .buffered(max_contrib_requests)
+            .filter_map(|bus_factor| async move {
+                match bus_factor {
+                    Ok(bus_factor) => bus_factor,
+                    err => {
+                        error!("Failed to calculate bus factor: {:?}", err);
+                        None
+                    }
+                }
+            })
+            .boxed()
     }
 
-    async fn top_repos_page(
-        client: &Arc<CLIENT>,
-        lang: impl Into<String>,
+    fn top_repos(
+        client: Arc<CLIENT>,
+        lang: String,
         repo_count: u32,
-        page_num: u32,
-    ) -> clients::api::Result<Vec<REPO>> {
-        if repo_count < MAX_REPOS_PAGE {
-            if page_num == FIRST_PAGE_NUMBER {
-                client.top_repos(lang.into(), page_num, repo_count).await
+    ) -> Pin<Box<dyn Stream<Item = JoinHandle<Result<Vec<REPO>, clients::api::Error>>> + Send>> {
+        let mut paginator = Paginator {
+            max_page_size: MAX_REPOS_PAGE,
+            page_no: FIRST_PAGE_NUMBER,
+            remaining: repo_count,
+        };
+        stream::poll_fn(move |_| Poll::Ready(paginator.next_page()))
+            .map(move |page| {
+                let client = client.clone();
+                let lang = lang.clone();
+                tokio::spawn(Self::top_repos_page(client, lang, page))
+            })
+            .boxed()
+    }
+
+    async fn top_repos_page(client: Arc<CLIENT>, lang: String, page: Page) -> clients::api::Result<Vec<REPO>> {
+        if page.page_size < MAX_REPOS_PAGE {
+            if page.page_no == FIRST_PAGE_NUMBER {
+                client.top_repos(lang.into(), page.page_no, page.page_size).await
             } else {
-                let repos = client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await;
-                repos.map(|v| Self::take_first_n(v, repo_count))
+                let repos = client.top_repos(lang.into(), page.page_no, MAX_REPOS_PAGE).await;
+                repos.map(|v| Self::take_first_n(v, page.page_size))
             }
         } else {
-            client.top_repos(lang.into(), page_num, MAX_REPOS_PAGE).await
+            client.top_repos(lang.into(), page.page_no, page.page_size).await
         }
     }
 
@@ -121,30 +169,9 @@ where
         v.into_iter().take(n as usize).collect()
     }
 
-    fn top_contributors(
-        repo_receiver: Receiver<Vec<REPO>>,
-        client: Arc<CLIENT>,
-        threshold: f32,
-    ) -> Receiver<BusFactor> {
-        let (bus_factor_sender, bus_factor_receiver) = tokio::sync::mpsc::channel::<BusFactor>(10);
-        tokio::spawn(async move {
-            ReceiverStream::new(repo_receiver)
-                .flat_map(|repos| stream::iter(repos))
-                .map(|repo| Self::repo_bus_factor(repo, client.clone(), threshold))
-                .for_each(|handle| async {
-                    if let Ok(Some(p)) = handle.await {
-                        if let Err(err) = bus_factor_sender.send(p).await {
-                            error!("Failure: {}", err);
-                        }
-                    }
-                })
-                .await;
-        });
-        bus_factor_receiver
-    }
-
     fn repo_bus_factor(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
-        // TODO add parameter
+        // TODO add parameter for 'per_page'
+        let client = client.clone();
         tokio::spawn(async move {
             client
                 .top_contributors(&repo, FIRST_PAGE_NUMBER, 25)
