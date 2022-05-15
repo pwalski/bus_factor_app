@@ -13,14 +13,15 @@
 //! Repositories with a bus factor of 75% or higher are returned as a Result.
 
 use std::fmt::Debug;
+use std::ops::AddAssign;
 use std::pin::Pin;
 use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use clients::api::{Client, Contributor, Repo};
 use derive_more::Constructor;
 use futures::task::Poll;
-use futures::{future, stream, Stream, StreamExt, TryStreamExt};
-use log::{debug, error};
+use futures::{stream, Stream, StreamExt};
+use log::error;
 use tokio::task::JoinHandle;
 
 #[derive(Debug, PartialEq, Constructor)]
@@ -54,14 +55,15 @@ struct Paginator {
 impl Paginator {
     fn next_page(&mut self) -> Option<Page> {
         let page_no = self.page_no;
-        self.page_no = self.page_no + 1;
         match self.remaining {
             0 => None,
             remaining if remaining <= self.max_page_size => {
+                self.page_no.add_assign(1);
                 self.remaining = 0;
                 Some(Page::new(page_no, remaining))
             }
-            r => {
+            _ => {
+                self.page_no.add_assign(1);
                 self.remaining = self.remaining - self.max_page_size;
                 Some(Page::new(page_no, self.max_page_size))
             }
@@ -100,9 +102,15 @@ where
         }
     }
 
-    pub fn calculate(self, lang: String, repo_count: u32) -> BusFactorStream {
+    pub fn calculate(
+        self,
+        lang: String,
+        repo_count: u32,
+        max_repo_requests: usize,
+        max_contrib_requests: usize,
+    ) -> BusFactorStream {
         Self::top_repos(self.client.clone(), lang, repo_count)
-            .buffered(1)
+            .buffered(max_repo_requests)
             .flat_map(|repos| {
                 match repos {
                     Ok(Ok(repos)) => stream::iter(repos),
@@ -113,7 +121,7 @@ where
                 }
             })
             .map(move |r| Self::repo_bus_factor(r, self.client.clone(), self.threshold))
-            .buffered(10)
+            .buffered(max_contrib_requests)
             .filter_map(|bus_factor| async move {
                 match bus_factor {
                     Ok(bus_factor) => bus_factor,

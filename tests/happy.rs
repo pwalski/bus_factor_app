@@ -1,7 +1,7 @@
 use bus_factor::BusFactor;
 use bus_factor_app::calculate_bus_factor;
 use bus_factor_app::Args;
-use futures::{StreamExt};
+use futures::StreamExt;
 use rand::Rng;
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -34,6 +34,8 @@ async fn happy_path_500() {
         api_token: None,
         api_url: server.uri(),
         threshold: 0.75,
+        max_repo_req: 1,
+        max_contrib_req: 10,
     };
 
     let calculated_bus_factors: Vec<BusFactor> = calculate_bus_factor(args).unwrap().collect().await;
