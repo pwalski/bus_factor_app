@@ -16,6 +16,7 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.18", features = ["time"] }
 chrono = "0.4"
 log = "0.4"
+derive_more = { version = "0.99", features = ["from"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

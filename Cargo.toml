@@ -9,21 +9,21 @@ description = "Program finding popular GitHub projects with a bus factor."
 [workspace]
 members = ["bus_factor", "clients", "clients/github"]
 
-
 [dependencies]
 bus_factor = { path = "bus_factor" }
 clap = { version = "3.1", features = ["derive"] }
 clients = { path = "clients" }
 env_logger = "0.9"
+futures = "0.3"
 github_client = { path = "clients/github" }
 log = "0.4"
 secrecy = "0.8"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
-futures = "0.3"
 
 [dev-dependencies]
-wiremock = "0.5"
 rand = "0.8"
+wiremock = "0.5"
+chrono = "0.4"
 
 [[bin]]
 name = "bus_factor"

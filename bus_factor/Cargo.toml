@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 clients = { path = "../clients" }
-derive_more = "0.99"
+derive_more = { version = "0.99", features = ["from"] }
 derive-new = "0.5"
 futures = { version = "0.3", features = ["std"] }
 github_client = { path = "../clients/github" }

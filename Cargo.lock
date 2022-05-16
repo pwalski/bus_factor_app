@@ -124,6 +124,7 @@ name = "bus_factor_app"
 version = "0.0.1"
 dependencies = [
  "bus_factor",
+ "chrono",
  "clap",
  "clients",
  "env_logger",
@@ -505,6 +506,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "clients",
+ "derive_more",
  "log",
  "paginate",
  "reqwest",

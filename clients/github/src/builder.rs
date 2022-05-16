@@ -1,8 +1,9 @@
+use crate::limiter::RateLimit;
+use crate::limiter::RateLimiter;
 use crate::payload::RateLimitBody;
 use crate::payload::RateLimitResource;
 use crate::payload::RateLimitResources;
 use crate::GithubClient;
-use crate::RateLimit;
 use clients::api::Result;
 use reqwest::header;
 use reqwest::header::HeaderMap;
@@ -58,19 +59,14 @@ impl GithubClientBuilder {
     pub async fn build(self) -> Result<GithubClient> {
         let client = self.client_builder.default_headers(self.headers).build()?;
         let github_url = self.github_url;
-        let rate_limit = rate_limit(&client, &github_url).await?;
-        let repos_limiter = Arc::new(Mutex::new(rate_limit.search.into()));
-        let contrib_limiter = Arc::new(Mutex::new(rate_limit.core.into()));
-        Ok(GithubClient {
-            client,
-            github_url,
-            repos_limiter,
-            contrib_limiter,
-        })
+        let rate_limit = get_rate_limit(&client, &github_url).await?;
+        let repos_limiter = rate_limit.search.into();
+        let contrib_limiter = rate_limit.core.into();
+        Ok(GithubClient::new(client, github_url, repos_limiter, contrib_limiter))
     }
 }
 
-async fn rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::Result<RateLimitResources> {
+async fn get_rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::Result<RateLimitResources> {
     let request_url = format!("{}/rate_limit", github_url.into());
     let response = client.get(request_url).send().await?;
     crate::read_response::<RateLimitBody>(response)
@@ -78,12 +74,10 @@ async fn rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::
         .map(|resources| resources.resources)
 }
 
-impl From<RateLimitResource> for RateLimit {
-    fn from(rate_limit: RateLimitResource) -> Self {
-        RateLimit {
-            limit: rate_limit.limit,
-            remaining: rate_limit.remaining - 1,
-            reset: rate_limit.reset,
-        }
+impl From<RateLimitResource> for RateLimiter {
+    fn from(limit_resource: RateLimitResource) -> Self {
+        let remaining = std::cmp::max(limit_resource.remaining, 1);
+        let limit = RateLimit::new(limit_resource.limit, remaining, limit_resource.reset);
+        RateLimiter::new(Arc::new(Mutex::new(limit)))
     }
 }

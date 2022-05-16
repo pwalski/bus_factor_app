@@ -1,6 +1,7 @@
 use bus_factor::BusFactor;
 use bus_factor_app::calculate_bus_factor;
 use bus_factor_app::Args;
+use chrono::Utc;
 use futures::StreamExt;
 use rand::Rng;
 use std::collections::VecDeque;
@@ -58,13 +59,15 @@ async fn happy_path_300() {
 }
 
 async fn mock_rate_limit<'a>(server: &'a MockServer) {
-    let body = String::from(
-        r#"{ 
-            "resources": {
-                "core": { "limit": 9000, "remaining": 9000, "reset": 6027440400 },
-                "search": { "limit": 9000, "remaining": 9000, "reset": 6027440400 }
-            }
-        }"#,
+    let reset = Utc::now().timestamp() + 1;
+    let body = format!(
+        r#"{{
+            "resources": {{
+                "core": {{ "limit": 9000, "remaining": 0, "reset": {} }},
+                "search": {{ "limit": 9000, "remaining": 0, "reset": {} }}
+            }}
+        }}"#,
+        reset, reset,
     );
     let duration = rand::thread_rng().gen_range(1..10);
     let duration = Duration::from_millis(duration);
