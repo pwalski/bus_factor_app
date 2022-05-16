@@ -126,16 +126,34 @@ name = "bus_factor_app"
 version = "0.0.1"
 dependencies = [
  "bus_factor",
+ "bus_factor_github_client",
  "chrono",
  "clap",
  "env_logger",
  "futures",
- "github_client",
  "log",
  "rand 0.8.5",
  "secrecy",
  "tokio",
  "wiremock",
+]
+
+[[package]]
+name = "bus_factor_github_client"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bus_factor",
+ "chrono",
+ "derive_more",
+ "log",
+ "paginate",
+ "reqwest",
+ "secrecy",
+ "serde",
+ "tokio",
+ "tokio-test",
 ]
 
 [[package]]
@@ -486,24 +504,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi 0.10.2+wasi-snapshot-preview1",
-]
-
-[[package]]
-name = "github_client"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "bus_factor",
- "chrono",
- "derive_more",
- "log",
- "paginate",
- "reqwest",
- "secrecy",
- "serde",
- "tokio",
- "tokio-test",
 ]
 
 [[package]]

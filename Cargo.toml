@@ -10,11 +10,11 @@ description = "Program finding popular GitHub projects with a bus factor."
 members = ["bus_factor", "clients/github"]
 
 [dependencies]
-bus_factor = { path = "bus_factor" }
-clap = { version = "3.1", features = ["derive"] }
+bus_factor = { path = "bus_factor", features = ["calculator"] }
+clap = { version = "3.1", features = ["derive", "std"] }
 env_logger = "0.9"
 futures = "0.3"
-github_client = { path = "clients/github" }
+github_client = { path = "clients/github", package = "bus_factor_github_client" }
 log = "0.4"
 secrecy = "0.8"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }

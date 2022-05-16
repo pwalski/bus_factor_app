@@ -2,6 +2,7 @@ use bus_factor::api::Result;
 use chrono::Utc;
 use derive_more::Constructor;
 use log::debug;
+use log::info;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderValue;
 use std::str::FromStr;
@@ -24,7 +25,7 @@ pub struct RateLimiter {
 impl RateLimiter {
     pub async fn wait(&self) {
         while let Some(delay) = self.time_to_wait().await {
-            debug!("Rate limiting wait: {}", delay.as_secs());
+            info!("Rate limiting wait: {}", delay.as_secs());
             tokio::time::sleep(delay).await;
         }
     }
