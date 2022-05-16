@@ -1,6 +1,6 @@
 [package]
 name = "bus_factor_app"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 license = "MIT"
 description = "Program finding popular GitHub projects with a bus factor."

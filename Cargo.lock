@@ -107,7 +107,7 @@ checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
 
 [[package]]
 name = "bus_factor"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -123,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "bus_factor_app"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "bus_factor",
  "bus_factor_github_client",
@@ -140,7 +140,7 @@ dependencies = [
 
 [[package]]
 name = "bus_factor_github_client"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "async-trait",
