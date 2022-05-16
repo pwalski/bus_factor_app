@@ -76,7 +76,7 @@ async fn get_rate_limit(client: &Client, github_url: impl Into<String>) -> reqwe
 
 impl From<RateLimitResource> for RateLimiter {
     fn from(limit_resource: RateLimitResource) -> Self {
-        let remaining = std::cmp::max(limit_resource.remaining, 1);
+        let remaining = std::cmp::max(limit_resource.remaining, 1) - 1;
         let limit = RateLimit::new(limit_resource.limit, remaining, limit_resource.reset);
         RateLimiter::new(Arc::new(Mutex::new(limit)))
     }
