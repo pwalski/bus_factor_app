@@ -110,6 +110,7 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
         );
         let duration = rand::thread_rng().gen_range(3..15);
         let duration = Duration::from_millis(duration);
+        let reset = format!("{}", Utc::now().timestamp() + 1);
         Mock::given(method("GET"))
             .and(path("/search/repositories"))
             .and(query_param("q", format!("language:{}", lang)))
@@ -124,7 +125,7 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
                     .set_delay(duration)
                     .insert_header("x-ratelimit-limit", "9000")
                     .insert_header("x-ratelimit-remaining", "9000")
-                    .insert_header("x-ratelimit-reset", "6027440400"),
+                    .insert_header("x-ratelimit-reset", reset.as_str()),
             )
             .mount(server)
             .await;
@@ -165,6 +166,7 @@ async fn mock_contributors<'a>(
         let duration = Duration::from_millis(duration);
         //TODO Figure out why wiremock path matcher does not work.
         let p = format!("/repos/owner_{}/repo_{}/contributors", repo_index, repo_index);
+        let reset = format!("{}", Utc::now().timestamp() + 1);
         Mock::given(GetPathMatcher(p))
             .respond_with(
                 ResponseTemplate::new(200)
@@ -172,7 +174,7 @@ async fn mock_contributors<'a>(
                     .set_delay(duration)
                     .insert_header("x-ratelimit-limit", "9000")
                     .insert_header("x-ratelimit-remaining", "9000")
-                    .insert_header("x-ratelimit-reset", "6027440400"),
+                    .insert_header("x-ratelimit-reset", reset.as_str()),
             )
             .mount(server)
             .await;
