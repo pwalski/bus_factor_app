@@ -31,9 +31,9 @@ pub struct Contributor {
     pub contributions: u32,
 }
 
-impl From<Contributor> for clients::api::Contributor {
+impl From<Contributor> for bus_factor::api::Contributor {
     fn from(contributor: Contributor) -> Self {
-        clients::api::Contributor {
+        bus_factor::api::Contributor {
             name: contributor.login,
             contributions: contributor.contributions,
         }

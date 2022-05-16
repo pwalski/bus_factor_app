@@ -109,14 +109,16 @@ checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
 name = "bus_factor"
 version = "0.0.1"
 dependencies = [
- "clients",
+ "anyhow",
+ "async-trait",
  "derive-new",
  "derive_more",
  "futures",
- "github_client",
  "log",
+ "reqwest",
  "thiserror",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -126,7 +128,6 @@ dependencies = [
  "bus_factor",
  "chrono",
  "clap",
- "clients",
  "env_logger",
  "futures",
  "github_client",
@@ -211,17 +212,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a37c35f1112dad5e6e0b1adaff798507497a18fceeb30cceb3bae7d1427b9213"
 dependencies = [
  "os_str_bytes",
-]
-
-[[package]]
-name = "clients"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "reqwest",
- "thiserror",
- "url",
 ]
 
 [[package]]
@@ -504,8 +494,8 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bus_factor",
  "chrono",
- "clients",
  "derive_more",
  "log",
  "paginate",

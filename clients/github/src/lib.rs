@@ -3,8 +3,8 @@ mod limiter;
 mod payload;
 
 use async_trait::async_trait;
-use clients::api::Contributor;
-use clients::api::Result;
+use bus_factor::api::Contributor;
+use bus_factor::api::Result;
 use derive_more::Constructor;
 use limiter::RateLimiter;
 use reqwest::Client;
@@ -27,7 +27,7 @@ pub struct GithubRepo {
     owner: String,
 }
 
-impl clients::api::Repo for GithubRepo {
+impl bus_factor::api::Repo for GithubRepo {
     type T = String;
     fn name(&self) -> Self::T {
         self.name.clone()
@@ -35,7 +35,7 @@ impl clients::api::Repo for GithubRepo {
 }
 
 #[async_trait]
-impl clients::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
+impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
     async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<GithubRepo>> {
         let request_url = format!("{}/search/repositories", self.github_url);
         let lang_query = format!("language:{}", lang);

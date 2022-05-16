@@ -4,7 +4,7 @@ use crate::payload::RateLimitBody;
 use crate::payload::RateLimitResource;
 use crate::payload::RateLimitResources;
 use crate::GithubClient;
-use clients::api::Result;
+use bus_factor::api::Result;
 use reqwest::header;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;

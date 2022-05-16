@@ -1,6 +1,6 @@
 use bus_factor::BusFactor;
+use bus_factor_app::args::Args;
 use bus_factor_app::calculate_bus_factor;
-use bus_factor_app::Args;
 use chrono::Utc;
 use futures::StreamExt;
 use rand::Rng;
@@ -58,7 +58,7 @@ async fn happy_path_300() {
     }
 }
 
-async fn mock_rate_limit<'a>(server: &'a MockServer) {
+async fn mock_rate_limit(server: &MockServer) {
     let reset = Utc::now().timestamp() + 1;
     let body = format!(
         r#"{{
@@ -83,7 +83,7 @@ async fn mock_rate_limit<'a>(server: &'a MockServer) {
         .await;
 }
 
-async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) {
+async fn mock_repos<'a>(server: &MockServer, repos_count: u32, lang: String) {
     for repo_page in 0..repos_count / MAX_REPOS_PAGE {
         let mut body = String::from(
             r#"{
@@ -132,8 +132,8 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
     }
 }
 
-async fn mock_contributors<'a>(
-    server: &'a MockServer,
+async fn mock_contributors(
+    server: &MockServer,
     repos_count: u32,
     repo_contributors_count: u32,
     bus_factor_divisor: u32,

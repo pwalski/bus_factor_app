@@ -1,5 +1,5 @@
+use bus_factor::api::Result;
 use chrono::Utc;
-use clients::api::Result;
 use derive_more::Constructor;
 use log::debug;
 use reqwest::header::HeaderMap;
@@ -64,7 +64,7 @@ impl RateLimiter {
 fn read_header<T>(headers: &HeaderMap<HeaderValue>, header: &str) -> Result<T>
 where
     T: FromStr,
-    clients::api::Error: From<<T as FromStr>::Err>,
+    bus_factor::api::Error: From<<T as FromStr>::Err>,
 {
     let header = headers
         .get(header)

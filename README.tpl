@@ -12,6 +12,8 @@ cargo run -- --language rust --project-count 50
 
 Use `--help` to check other params (like `--api-token`).
 
+Add `RUST_LOG=debug` for verbose logs.
+
 ### Update of README.md
 
 ```shell
