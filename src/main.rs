@@ -3,8 +3,6 @@ use bus_factor_app::args::Args;
 use clap::Parser;
 use futures::StreamExt;
 
-/// Simple program to greet a person
-
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let args = Args::parse();
