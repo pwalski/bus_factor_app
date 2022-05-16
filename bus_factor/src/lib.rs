@@ -12,6 +12,7 @@
 //! We assume a repository's bus factor is 1 if its most active developer's contributions account for 75% or more of the total contributions count from the top 25 most active developers.
 //! Repositories with a bus factor of 75% or higher are returned as a Result.
 
+use clients::api::Error;
 use clients::api::{Client, Contributor, Repo};
 use derive_more::Constructor;
 use futures::task::Poll;
@@ -21,6 +22,7 @@ use std::fmt::Debug;
 use std::ops::AddAssign;
 use std::pin::Pin;
 use std::{fmt::Display, marker::PhantomData, sync::Arc};
+use tokio::task::JoinError;
 use tokio::task::JoinHandle;
 
 #[derive(Debug, PartialEq, Constructor)]
@@ -110,26 +112,10 @@ where
     ) -> BusFactorStream {
         Self::top_repos(self.client.clone(), lang, repo_count)
             .buffered(max_repo_requests)
-            .flat_map(|repos| {
-                match repos {
-                    Ok(Ok(repos)) => stream::iter(repos),
-                    err => {
-                        error!("Failed to get top repositories: {:?}", err);
-                        stream::iter(Vec::new()) //TODO how to return stream::empty() ???
-                    }
-                }
-            })
+            .flat_map(Self::map_top_repos_result)
             .map(move |r| Self::repo_bus_factor(r, self.client.clone(), self.threshold))
             .buffered(max_contrib_requests)
-            .filter_map(|bus_factor| async move {
-                match bus_factor {
-                    Ok(bus_factor) => bus_factor,
-                    err => {
-                        error!("Failed to calculate bus factor: {:?}", err);
-                        None
-                    }
-                }
-            })
+            .filter_map(map_bus_factor_result)
             .boxed()
     }
 
@@ -183,6 +169,18 @@ where
                 })
         })
     }
+
+    /// Utility functions
+
+    fn map_top_repos_result(repos: Result<Result<Vec<REPO>, Error>, JoinError>) -> impl Stream<Item = REPO> {
+        match repos {
+            Ok(Ok(repos)) => stream::iter(repos),
+            err => {
+                error!("Failed to get top repositories: {:?}", err);
+                stream::iter(Vec::new()) //TODO how to return stream::empty() ???
+            }
+        }
+    }
 }
 
 /// Returns `RepoBusFactor` if `threshold` reached.
@@ -210,6 +208,21 @@ fn calculate_percentage(contributions: u32, total_contributions: u32) -> f32 {
     let bus_factor = contributions as f32 / total_contributions as f32;
     (&format!("{0:.1$}", bus_factor, 2)).parse().unwrap() //TODO probably there is a smarter way to do this...
 }
+
+/// Utility functions
+
+//TODO async only for sake of StreamExt::filter_map
+async fn map_bus_factor_result(bus_factor: Result<Option<BusFactor>, JoinError>) -> Option<BusFactor> {
+    match bus_factor {
+        Ok(bus_factor) => bus_factor,
+        err => {
+            error!("Failed to calculate bus factor: {:?}", err);
+            None
+        }
+    }
+}
+
+/// Tests
 
 #[test]
 fn bus_factor_some_test() {
