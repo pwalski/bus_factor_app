@@ -5,11 +5,21 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-clients = { path = "../clients" }
-derive_more = "0.99"
+derive_more = { version = "0.99", features = ["from"] }
 derive-new = "0.5"
-futures = { version = "0.3", features = ["std"] }
-github_client = { path = "../clients/github" }
+futures = { version = "0.3", features = ["std"], optional = true }
 log = "0.4"
 thiserror = "1.0"
-tokio = { version = "1.18", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1.18", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+], optional = true }
+async-trait = "0.1"
+reqwest = { version = "0.11", optional = true }
+anyhow = "1.0"
+url = { verion = "2.2", optional = true }
+
+[features]
+api = ["dep:reqwest", "dep:url"]
+calculator = ["dep:futures", "dep:tokio"]

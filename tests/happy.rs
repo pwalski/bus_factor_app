@@ -1,6 +1,7 @@
 use bus_factor::BusFactor;
+use bus_factor_app::args::Args;
 use bus_factor_app::calculate_bus_factor;
-use bus_factor_app::Args;
+use chrono::Utc;
 use futures::StreamExt;
 use rand::Rng;
 use std::collections::VecDeque;
@@ -57,14 +58,16 @@ async fn happy_path_300() {
     }
 }
 
-async fn mock_rate_limit<'a>(server: &'a MockServer) {
-    let body = String::from(
-        r#"{ 
-            "resources": {
-                "core": { "limit": 9000, "used": 0 },
-                "search": { "limit": 9000, "used": 0 }
-            }
-        }"#,
+async fn mock_rate_limit(server: &MockServer) {
+    let reset = Utc::now().timestamp() + 1;
+    let body = format!(
+        r#"{{
+            "resources": {{
+                "core": {{ "limit": 9000, "remaining": 0, "reset": {} }},
+                "search": {{ "limit": 9000, "remaining": 0, "reset": {} }}
+            }}
+        }}"#,
+        reset, reset,
     );
     let duration = rand::thread_rng().gen_range(1..10);
     let duration = Duration::from_millis(duration);
@@ -80,7 +83,7 @@ async fn mock_rate_limit<'a>(server: &'a MockServer) {
         .await;
 }
 
-async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) {
+async fn mock_repos<'a>(server: &MockServer, repos_count: u32, lang: String) {
     for repo_page in 0..repos_count / MAX_REPOS_PAGE {
         let mut body = String::from(
             r#"{
@@ -107,6 +110,7 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
         );
         let duration = rand::thread_rng().gen_range(3..15);
         let duration = Duration::from_millis(duration);
+        let reset = format!("{}", Utc::now().timestamp() + 1);
         Mock::given(method("GET"))
             .and(path("/search/repositories"))
             .and(query_param("q", format!("language:{}", lang)))
@@ -118,15 +122,18 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_raw(body, "application/json")
-                    .set_delay(duration),
+                    .set_delay(duration)
+                    .insert_header("x-ratelimit-limit", "9000")
+                    .insert_header("x-ratelimit-remaining", "9000")
+                    .insert_header("x-ratelimit-reset", reset.as_str()),
             )
             .mount(server)
             .await;
     }
 }
 
-async fn mock_contributors<'a>(
-    server: &'a MockServer,
+async fn mock_contributors(
+    server: &MockServer,
     repos_count: u32,
     repo_contributors_count: u32,
     bus_factor_divisor: u32,
@@ -159,11 +166,15 @@ async fn mock_contributors<'a>(
         let duration = Duration::from_millis(duration);
         //TODO Figure out why wiremock path matcher does not work.
         let p = format!("/repos/owner_{}/repo_{}/contributors", repo_index, repo_index);
+        let reset = format!("{}", Utc::now().timestamp() + 1);
         Mock::given(GetPathMatcher(p))
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_raw(body, "application/json")
-                    .set_delay(duration),
+                    .set_delay(duration)
+                    .insert_header("x-ratelimit-limit", "9000")
+                    .insert_header("x-ratelimit-remaining", "9000")
+                    .insert_header("x-ratelimit-reset", reset.as_str()),
             )
             .mount(server)
             .await;

@@ -31,9 +31,9 @@ pub struct Contributor {
     pub contributions: u32,
 }
 
-impl From<Contributor> for clients::api::Contributor {
+impl From<Contributor> for bus_factor::api::Contributor {
     fn from(contributor: Contributor) -> Self {
-        clients::api::Contributor {
+        bus_factor::api::Contributor {
             name: contributor.login,
             contributions: contributor.contributions,
         }
@@ -41,7 +41,7 @@ impl From<Contributor> for clients::api::Contributor {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct RateLimit {
+pub struct RateLimitBody {
     pub resources: RateLimitResources,
 }
 
@@ -54,5 +54,6 @@ pub struct RateLimitResources {
 #[derive(Deserialize, Debug)]
 pub struct RateLimitResource {
     pub limit: u32,
-    pub used: u32,
+    pub remaining: u32,
+    pub reset: i64,
 }

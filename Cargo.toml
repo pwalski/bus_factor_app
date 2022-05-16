@@ -7,23 +7,22 @@ description = "Program finding popular GitHub projects with a bus factor."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [workspace]
-members = ["bus_factor", "clients", "clients/github"]
-
+members = ["bus_factor", "clients/github"]
 
 [dependencies]
-bus_factor = { path = "bus_factor" }
-clap = { version = "3.1", features = ["derive"] }
-clients = { path = "clients" }
+bus_factor = { path = "bus_factor", features = ["calculator"] }
+clap = { version = "3.1", features = ["derive", "std"] }
 env_logger = "0.9"
-github_client = { path = "clients/github" }
+futures = "0.3"
+github_client = { path = "clients/github", package = "bus_factor_github_client" }
 log = "0.4"
 secrecy = "0.8"
 tokio = { version = "1.18", features = ["macros", "rt-multi-thread"] }
-futures = "0.3"
 
 [dev-dependencies]
-wiremock = "0.5"
+chrono = "0.4"
 rand = "0.8"
+wiremock = "0.5"
 
 [[bin]]
 name = "bus_factor"

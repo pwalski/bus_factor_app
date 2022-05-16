@@ -1,22 +1,19 @@
-use crate::payload::RateLimit;
+use crate::limiter::RateLimit;
+use crate::limiter::RateLimiter;
+use crate::payload::RateLimitBody;
 use crate::payload::RateLimitResource;
 use crate::payload::RateLimitResources;
 use crate::GithubClient;
-use clients::api::Result;
+use bus_factor::api::Result;
 use reqwest::header;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
 use reqwest::Client;
 use reqwest::ClientBuilder;
-use reqwest::Request;
-use reqwest::Response;
 use secrecy::ExposeSecret;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
-use tower::util::BoxService;
-use tower::{service_fn, ServiceExt};
 
 pub struct GithubClientBuilder {
     client_builder: ClientBuilder,
@@ -62,37 +59,25 @@ impl GithubClientBuilder {
     pub async fn build(self) -> Result<GithubClient> {
         let client = self.client_builder.default_headers(self.headers).build()?;
         let github_url = self.github_url;
-        let rate_limit = rate_limit(&client, &github_url).await?;
-        let repo_service = rate_limited_service(client.clone(), &rate_limit.search)?;
-        let contrib_service = rate_limited_service(client.clone(), &rate_limit.core)?;
-        Ok(GithubClient {
-            repo_service: Arc::new(Mutex::new(repo_service)),
-            contrib_service: Arc::new(Mutex::new(contrib_service)),
-            github_url,
-        })
+        let rate_limit = get_rate_limit(&client, &github_url).await?;
+        let repos_limiter = rate_limit.search.into();
+        let contrib_limiter = rate_limit.core.into();
+        Ok(GithubClient::new(client, github_url, repos_limiter, contrib_limiter))
     }
 }
 
-async fn rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::Result<RateLimitResources> {
+async fn get_rate_limit(client: &Client, github_url: impl Into<String>) -> reqwest::Result<RateLimitResources> {
     let request_url = format!("{}/rate_limit", github_url.into());
     let response = client.get(request_url).send().await?;
-    crate::read_response::<RateLimit>(response)
+    crate::read_response::<RateLimitBody>(response)
         .await
         .map(|resources| resources.resources)
 }
 
-fn rate_limited_service(
-    client: Client,
-    limit: &RateLimitResource,
-) -> Result<BoxService<Request, Response, reqwest::Error>> {
-    let limit = limit.limit - limit.used;
-    if limit == 0 {
-        return Err(clients::api::Error::Error("API rate limits reached."));
+impl From<RateLimitResource> for RateLimiter {
+    fn from(limit_resource: RateLimitResource) -> Self {
+        let remaining = std::cmp::max(limit_resource.remaining, 1) - 1;
+        let limit = RateLimit::new(limit_resource.limit, remaining, limit_resource.reset);
+        RateLimiter::new(Arc::new(Mutex::new(limit)))
     }
-    //TODO Make use from `RateLimitResource::used` field. Do not assume 1 min duration.
-    let service = tower::ServiceBuilder::new()
-        .rate_limit(limit as u64, Duration::from_secs(61))
-        .service(service_fn(move |req| client.execute(req)))
-        .boxed();
-    Ok(service)
 }

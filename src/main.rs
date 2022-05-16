@@ -1,6 +1,6 @@
-use bus_factor_app::Args;
+use bus_factor::api::Error;
+use bus_factor_app::args::Args;
 use clap::Parser;
-use clients::api::Error;
 use futures::StreamExt;
 
 /// Simple program to greet a person

@@ -19,7 +19,7 @@ Repositories with a bus factor of 75% or higher are returned as a Result.
 Sample run with default threshold (0.75).
 
 ```shell
-cargo run -- --language rust --project-count 50
+RUST_LOG=info cargo run -- --language rust --project-count 50
 ```
 
 Use `--help` to check other params (like `--api-token`).

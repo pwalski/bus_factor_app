@@ -1,5 +1,5 @@
 [package]
-name = "github_client"
+name = "bus_factor_github_client"
 version = "0.0.1"
 edition = "2021"
 license = "MIT"
@@ -7,14 +7,16 @@ license = "MIT"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-clients = { path = "../../clients" }
 paginate = "1.1"
 reqwest = { version = "0.11", features = ["json"] }
 secrecy = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0"
-tower = { version = "0.4", features = ["limit", "full"] }
-tokio = { version = "1.18", features = ["sync"] }
+# thiserror = "1.0"
+tokio = { version = "1.18", features = ["time"] }
+chrono = "0.4"
+log = "0.4"
+derive_more = { version = "0.99", features = ["from"] }
+bus_factor = { path = "../../bus_factor", features = ["api"] }
 
 [dev-dependencies]
 tokio-test = "0.4"
