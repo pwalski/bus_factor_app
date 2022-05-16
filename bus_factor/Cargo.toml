@@ -6,7 +6,6 @@ license = "MIT"
 
 [dependencies]
 derive_more = { version = "0.99", features = ["from"] }
-derive-new = "0.5"
 futures = { version = "0.3", features = ["std"], optional = true }
 log = "0.4"
 thiserror = "1.0"

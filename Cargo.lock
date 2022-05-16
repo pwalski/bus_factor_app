@@ -111,7 +111,6 @@ version = "0.0.2"
 dependencies = [
  "anyhow",
  "async-trait",
- "derive-new",
  "derive_more",
  "futures",
  "log",
@@ -148,7 +147,6 @@ dependencies = [
  "chrono",
  "derive_more",
  "log",
- "paginate",
  "reqwest",
  "secrecy",
  "serde",
@@ -281,17 +279,6 @@ name = "deadpool-runtime"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaa37046cc0f6c3cc6090fbdbf73ef0b8ef4cfcc37f6befc0020f63e8cf121e1"
-
-[[package]]
-name = "derive-new"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3418329ca0ad70234b9735dc4ceed10af4df60eff9c8e7b06cb5e520d92c3535"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
 
 [[package]]
 name = "derive_more"
@@ -855,12 +842,6 @@ name = "os_str_bytes"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
-
-[[package]]
-name = "paginate"
-version = "1.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ac1db209d9d6dc8e4435b744ed76198494406cd20eb8ca14baf9828664664c8"
 
 [[package]]
 name = "parking"
