@@ -61,8 +61,8 @@ async fn mock_rate_limit<'a>(server: &'a MockServer) {
     let body = String::from(
         r#"{ 
             "resources": {
-                "core": { "limit": 9000, "used": 0 },
-                "search": { "limit": 9000, "used": 0 }
+                "core": { "limit": 9000, "remaining": 9000, "reset": 6027440400 },
+                "search": { "limit": 9000, "remaining": 9000, "reset": 6027440400 }
             }
         }"#,
     );
@@ -118,7 +118,10 @@ async fn mock_repos<'a>(server: &'a MockServer, repos_count: u32, lang: String) 
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_raw(body, "application/json")
-                    .set_delay(duration),
+                    .set_delay(duration)
+                    .insert_header("x-ratelimit-limit", "9000")
+                    .insert_header("x-ratelimit-remaining", "9000")
+                    .insert_header("x-ratelimit-reset", "6027440400"),
             )
             .mount(server)
             .await;
@@ -163,7 +166,10 @@ async fn mock_contributors<'a>(
             .respond_with(
                 ResponseTemplate::new(200)
                     .set_body_raw(body, "application/json")
-                    .set_delay(duration),
+                    .set_delay(duration)
+                    .insert_header("x-ratelimit-limit", "9000")
+                    .insert_header("x-ratelimit-remaining", "9000")
+                    .insert_header("x-ratelimit-reset", "6027440400"),
             )
             .mount(server)
             .await;

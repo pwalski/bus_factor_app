@@ -5,14 +5,25 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Error: {0}")]
-    Error(&'static str),
+    Error(String),
     // the only reason of `reqwest` dependency..
     #[error("Request error: {0}")]
     RequestError(#[from] reqwest::Error),
     #[error("Url parse error: {0}")]
     UrlParseError(#[from] url::ParseError),
+    #[error("Header parse error: {0}")]
+    HeaderParseError(#[from] reqwest::header::ToStrError),
+    #[error("Header value parse error: {0}")]
+    HeaderValueParseError(#[from] std::num::ParseIntError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+//TODO do it using `thiserror`
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::Error(msg)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
