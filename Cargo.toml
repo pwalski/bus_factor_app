@@ -11,7 +11,8 @@ members = ["bus_factor", "clients/github"]
 
 [dependencies]
 bus_factor = { path = "bus_factor", features = ["calculator"] }
-clap = { version = "3.1", features = ["derive", "std"] }
+clap = { version = "3.1", features = ["derive", "std", "env"] }
+dotenv = "0.15.0"
 env_logger = "0.9"
 futures = "0.3"
 github_client = { path = "clients/github", package = "bus_factor_github_client" }

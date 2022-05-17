@@ -10,7 +10,9 @@ Sample run with default threshold (0.75).
 RUST_LOG=info cargo run -- --language rust --project-count 50
 ```
 
-Use `--help` to check other params (like `--api-token`).
+Use `--help` for other params (like `--api-token` with `API_TOKEN` env variable).
+
+Environment variables can be configured using `.env` in working dir (*for Cargo run it is `target/debug`*)
 
 ### Update of README.md
 

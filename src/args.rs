@@ -9,31 +9,31 @@ use std::{
 #[clap(author, version, about, long_about = None)]
 pub struct Args {
     /// Repositories language
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     pub language: String,
 
     /// Number of times to greet
-    #[clap(short, long)]
+    #[clap(short, long, env)]
     pub project_count: u32,
 
     /// API OAuth access token
-    #[clap(long)]
+    #[clap(short, long, env)]
     pub api_token: Option<SecretString>,
 
     /// Repository API URL
-    #[clap(long, default_value = "https://api.github.com")]
+    #[clap(long, env, default_value = "https://api.github.com")]
     pub api_url: String,
 
     /// Bus factor threshold
-    #[clap(long, default_value_t = 0.75, parse(try_from_str=threshold_in_range))]
+    #[clap(short, long, env, default_value_t = 0.75, parse(try_from_str=threshold_in_range))]
     pub threshold: f32,
 
     /// Maximal parallel repository search requests
-    #[clap(long, default_value_t = 1, parse(try_from_str=max_repo_req_in_range))]
+    #[clap(long, env, default_value_t = 1, parse(try_from_str=max_repo_req_in_range))]
     pub max_repo_req: u32,
 
     /// Maximal parallel repository contributors requests
-    #[clap(long, default_value_t = 10, parse(try_from_str=max_contrib_req_in_range))]
+    #[clap(long, env, default_value_t = 10, parse(try_from_str=max_contrib_req_in_range))]
     pub max_contrib_req: u32,
 }
 

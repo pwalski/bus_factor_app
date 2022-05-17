@@ -1,10 +1,12 @@
 use bus_factor::{api::Error, BusFactor};
 use bus_factor_app::args::Args;
 use clap::Parser;
+use dotenv::dotenv;
 use futures::StreamExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv().ok();
     let args = Args::parse();
 
     bus_factor_app::calculate_bus_factor(args)
@@ -14,6 +16,7 @@ async fn main() -> Result<(), Error> {
 
     Ok(())
 }
+
 //TODO only because of for_each
 async fn print_line(bus_factor: BusFactor) {
     let line = format!(
