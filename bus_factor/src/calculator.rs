@@ -7,15 +7,15 @@ use log::error;
 use std::fmt::Debug;
 use std::ops::AddAssign;
 use std::pin::Pin;
-use std::{fmt::Display, marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 use tokio::task::JoinError;
 use tokio::task::JoinHandle;
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct BusFactor {
-    repo: String,
-    contributor: String,
-    bus_factor: f32,
+    pub repo: String,
+    pub contributor: String,
+    pub percentage: f32,
 }
 
 pub type BusFactorStream = Pin<Box<dyn Stream<Item = BusFactor> + std::marker::Send>>;
@@ -165,15 +165,6 @@ async fn map_bus_factor_result(bus_factor: Result<Option<BusFactor>, JoinError>)
             error!("Failed to calculate bus factor: {:?}", err);
             None
         }
-    }
-}
-
-impl Display for BusFactor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "project: {}\tuser: {}\tpercentage: {}",
-            self.repo, self.contributor, self.bus_factor
-        ))
     }
 }
 

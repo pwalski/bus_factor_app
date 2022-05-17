@@ -53,7 +53,7 @@ async fn happy_path_300() {
         if let Some(expected_factor) = expected_bus_factors.pop_front() {
             assert_eq!(bus_factor, expected_factor);
         } else {
-            panic!("Got unexpected result: {}", bus_factor);
+            panic!("Got unexpected result: {:?}", bus_factor);
         }
     }
 }
