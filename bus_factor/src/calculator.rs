@@ -111,13 +111,14 @@ where
     /// Utility functions
 
     fn map_top_repos_result(repos: Result<Result<Vec<REPO>, Error>, JoinError>) -> impl Stream<Item = REPO> {
-        match repos {
-            Ok(Ok(repos)) => stream::iter(repos),
-            err => {
-                error!("Failed to get top repositories: {:?}", err);
-                stream::iter(Vec::new()) //TODO how to return stream::empty() ???
-            }
+        if let Ok(Ok(repos)) = repos {
+            return stream::iter(repos);
         }
+        match repos {
+            Ok(Err(err)) => error!("Failed to get top repositories: {:?}", err),
+            err => error!("Failed to get top repositories: {:?}", err),
+        }
+        stream::iter(Vec::new()) //TODO how to return stream::empty() ???
     }
 }
 

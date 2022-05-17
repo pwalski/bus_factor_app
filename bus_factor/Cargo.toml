@@ -5,18 +5,18 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
 derive_more = { version = "0.99", features = ["from"] }
 futures = { version = "0.3", features = ["std"], optional = true }
-log = "0.4"
+log = { version = "0.4", optional = true }
 thiserror = "1.0"
 tokio = { version = "1.18", features = [
     "macros",
     "rt-multi-thread",
     "sync",
 ], optional = true }
-async-trait = "0.1"
-anyhow = "1.0"
 
 [features]
 api = []
-calculator = ["dep:futures", "dep:tokio"]
+calculator = ["dep:futures", "dep:tokio", "dep:log"]

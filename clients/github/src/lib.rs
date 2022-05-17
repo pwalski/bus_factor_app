@@ -110,7 +110,7 @@ pub(crate) type Result<T> = std::result::Result<T, crate::Error>;
 pub(crate) enum Error {
     #[error("Error: {0}")]
     Error(String),
-    #[error("Url parse error: {0}")]
+    #[error("Request error: {}", .0.status().map_or_else(|| "Unknown".to_string(), |status| status.to_string()))] //meh
     RequestError(#[from] reqwest::Error),
     #[error("Url parse error: {0}")]
     UrlParseError(#[from] url::ParseError),
@@ -121,9 +121,13 @@ pub(crate) enum Error {
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
 impl Into<bus_factor::api::Error> for Error {
     fn into(self) -> bus_factor::api::Error {
-        bus_factor::api::Error::RequestError(format!("{}", self))
+        match self {
+            err @ Self::RequestError(_) => bus_factor::api::Error::RequestError(err.to_string()),
+            err => bus_factor::api::Error::Error(err.to_string()),
+        }
     }
 }
 
