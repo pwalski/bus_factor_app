@@ -1,4 +1,4 @@
-use bus_factor::api::Result;
+use crate::Result;
 use chrono::Utc;
 use derive_more::Constructor;
 use log::debug;
@@ -23,9 +23,9 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
-    pub async fn wait(&self) {
+    pub(crate) async fn wait(&self) {
         while let Some(delay) = self.time_to_wait().await {
-            info!("Rate limiting wait: {}", delay.as_secs());
+            info!("Rate limiting wait: {} sec", delay.as_secs());
             tokio::time::sleep(delay).await;
         }
     }
@@ -47,7 +47,7 @@ impl RateLimiter {
         Some(Duration::new(rate_limit.reset as u64 - now as u64 + 1, 0))
     }
 
-    pub async fn reset_limiter(&self, headers: &HeaderMap<HeaderValue>) -> Result<()> {
+    pub(crate) async fn reset_limiter(&self, headers: &HeaderMap<HeaderValue>) -> crate::Result<()> {
         let mut rate_limit = self.limit.lock().await;
         rate_limit.limit = read_header::<u32>(headers, "x-ratelimit-limit")?;
         // Min `remaining` because in case of parallel requests late response may arrive with old `remaining`
@@ -65,7 +65,7 @@ impl RateLimiter {
 fn read_header<T>(headers: &HeaderMap<HeaderValue>, header: &str) -> Result<T>
 where
     T: FromStr,
-    bus_factor::api::Error: From<<T as FromStr>::Err>,
+    crate::Error: From<<T as FromStr>::Err>,
 {
     let header = headers
         .get(header)

@@ -15,6 +15,8 @@ chrono = "0.4"
 log = "0.4"
 derive_more = { version = "0.99", features = ["from"] }
 bus_factor = { path = "../../bus_factor", features = ["api"] }
+thiserror = "1.0"
+url = "2.2"
 
 [dev-dependencies]
 tokio-test = "0.4"

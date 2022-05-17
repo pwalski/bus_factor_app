@@ -4,12 +4,12 @@ mod payload;
 
 use async_trait::async_trait;
 use bus_factor::api::Contributor;
-use bus_factor::api::Result;
 use derive_more::Constructor;
 use limiter::RateLimiter;
 use reqwest::Client;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
+use thiserror::Error;
 
 pub use builder::GithubClientBuilder;
 
@@ -36,7 +36,26 @@ impl bus_factor::api::Repo for GithubRepo {
 
 #[async_trait]
 impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
-    async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<GithubRepo>> {
+    async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> bus_factor::api::Result<Vec<GithubRepo>> {
+        self.get_top_repos(lang, page, per_page)
+            .await
+            .map_err(crate::Error::into)
+    }
+
+    async fn top_contributors(
+        &self,
+        repo: &GithubRepo,
+        page: u32,
+        per_page: u32,
+    ) -> bus_factor::api::Result<Vec<Contributor>> {
+        self.get_top_contributors(repo, page, per_page)
+            .await
+            .map_err(crate::Error::into)
+    }
+}
+
+impl GithubClient {
+    async fn get_top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<GithubRepo>> {
         let request_url = format!("{}/search/repositories", self.github_url);
         let lang_query = format!("language:{}", lang);
         self.repos_limiter.wait().await;
@@ -58,7 +77,7 @@ impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
         Ok(response)
     }
 
-    async fn top_contributors(&self, repo: &GithubRepo, page: u32, per_page: u32) -> Result<Vec<Contributor>> {
+    async fn get_top_contributors(&self, repo: &GithubRepo, page: u32, per_page: u32) -> Result<Vec<Contributor>> {
         let request_url = format!("{}/repos/{}/{}/contributors", self.github_url, repo.owner, repo.name);
         self.contrib_limiter.wait().await;
         let response = self
@@ -81,4 +100,36 @@ impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
 async fn read_response<PAYLOAD: DeserializeOwned>(response: Response) -> reqwest::Result<PAYLOAD> {
     let response = response.error_for_status()?;
     response.json::<PAYLOAD>().await
+}
+
+// Result and Errors
+
+pub(crate) type Result<T> = std::result::Result<T, crate::Error>;
+
+#[derive(Error, Debug)]
+pub(crate) enum Error {
+    #[error("Error: {0}")]
+    Error(String),
+    #[error("Url parse error: {0}")]
+    RequestError(#[from] reqwest::Error),
+    #[error("Url parse error: {0}")]
+    UrlParseError(#[from] url::ParseError),
+    #[error("Header parse error: {0}")]
+    HeaderParseError(#[from] reqwest::header::ToStrError),
+    #[error("Header value parse error: {0}")]
+    HeaderValueParseError(#[from] std::num::ParseIntError),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+impl Into<bus_factor::api::Error> for Error {
+    fn into(self) -> bus_factor::api::Error {
+        bus_factor::api::Error::RequestError(format!("{}", self))
+    }
+}
+
+//TODO do it using `thiserror`
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::Error(msg)
+    }
 }

@@ -70,11 +70,7 @@ where
         lang: String,
         repo_count: u32,
     ) -> Pin<Box<dyn Stream<Item = JoinHandle<Result<Vec<REPO>, crate::api::Error>>> + Send>> {
-        let mut paginator = Paginator {
-            max_page_size: MAX_REPOS_PAGE,
-            page_no: FIRST_PAGE_NUMBER,
-            remaining: repo_count,
-        };
+        let mut paginator = Paginator::new(FIRST_PAGE_NUMBER, MAX_REPOS_PAGE, repo_count);
         stream::poll_fn(move |_| Poll::Ready(paginator.next_page()))
             .map(move |page| {
                 let client = client.clone();
@@ -90,15 +86,11 @@ where
                 client.top_repos(lang.into(), page.page_no, page.page_size).await
             } else {
                 let repos = client.top_repos(lang.into(), page.page_no, MAX_REPOS_PAGE).await;
-                repos.map(|v| Self::take_first_n(v, page.page_size))
+                repos.map(|v| take_first_n(v, page.page_size))
             }
         } else {
             client.top_repos(lang.into(), page.page_no, page.page_size).await
         }
-    }
-
-    fn take_first_n<T>(v: Vec<T>, n: u32) -> Vec<T> {
-        v.into_iter().take(n as usize).collect()
     }
 
     fn repo_bus_factor(repo: REPO, client: Arc<CLIENT>, threshold: f32) -> JoinHandle<Option<BusFactor>> {
@@ -156,6 +148,10 @@ fn calculate_percentage(contributions: u32, total_contributions: u32) -> f32 {
 }
 
 /// Utility functions
+
+fn take_first_n<T>(v: Vec<T>, n: u32) -> Vec<T> {
+    v.into_iter().take(n as usize).collect()
+}
 
 //TODO async only for sake of StreamExt::filter_map
 async fn map_bus_factor_result(bus_factor: Result<Option<BusFactor>, JoinError>) -> Option<BusFactor> {

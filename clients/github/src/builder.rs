@@ -4,7 +4,6 @@ use crate::payload::RateLimitBody;
 use crate::payload::RateLimitResource;
 use crate::payload::RateLimitResources;
 use crate::GithubClient;
-use bus_factor::api::Result;
 use reqwest::header;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
@@ -37,11 +36,11 @@ impl Default for GithubClientBuilder {
 }
 
 impl GithubClientBuilder {
-    pub fn try_with_token(self, token: secrecy::SecretString) -> Result<GithubClientBuilder> {
+    pub fn try_with_token(self, token: secrecy::SecretString) -> bus_factor::api::Result<GithubClientBuilder> {
         Ok(self.try_with_header(header::AUTHORIZATION, token.expose_secret())?)
     }
 
-    pub fn try_with_user_agent<STR: AsRef<str>>(self, user_agent: STR) -> Result<GithubClientBuilder> {
+    pub fn try_with_user_agent<STR: AsRef<str>>(self, user_agent: STR) -> bus_factor::api::Result<GithubClientBuilder> {
         Ok(self.try_with_header(header::USER_AGENT, user_agent)?)
     }
 
@@ -56,10 +55,16 @@ impl GithubClientBuilder {
         Ok(self)
     }
 
-    pub async fn build(self) -> Result<GithubClient> {
-        let client = self.client_builder.default_headers(self.headers).build()?;
+    pub async fn build(self) -> bus_factor::api::Result<GithubClient> {
+        let client = self
+            .client_builder
+            .default_headers(self.headers)
+            .build()
+            .map_err(|err| anyhow::anyhow!(err))?;
         let github_url = self.github_url;
-        let rate_limit = get_rate_limit(&client, &github_url).await?;
+        let rate_limit = get_rate_limit(&client, &github_url)
+            .await
+            .map_err(|err| anyhow::anyhow!(err))?;
         let repos_limiter = rate_limit.search.into();
         let contrib_limiter = rate_limit.core.into();
         Ok(GithubClient::new(client, github_url, repos_limiter, contrib_limiter))

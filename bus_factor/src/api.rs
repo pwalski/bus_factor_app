@@ -8,22 +8,11 @@ pub enum Error {
     Error(String),
     // the only reason of `reqwest` dependency..
     #[error("Request error: {0}")]
-    RequestError(#[from] reqwest::Error),
-    #[error("Url parse error: {0}")]
-    UrlParseError(#[from] url::ParseError),
-    #[error("Header parse error: {0}")]
-    HeaderParseError(#[from] reqwest::header::ToStrError),
-    #[error("Header value parse error: {0}")]
-    HeaderValueParseError(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-//TODO do it using `thiserror`
-impl From<String> for Error {
-    fn from(msg: String) -> Self {
-        Error::Error(msg)
-    }
+    RequestError(String),
+    // the only reason of `reqwest` dependency..
+    #[error("Client error: {0}")]
+    ClientError(#[from] anyhow::Error),
+    // the only reason of `reqwest` dependency..
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

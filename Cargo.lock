@@ -114,10 +114,8 @@ dependencies = [
  "derive_more",
  "futures",
  "log",
- "reqwest",
  "thiserror",
  "tokio",
- "url",
 ]
 
 [[package]]
@@ -150,8 +148,10 @@ dependencies = [
  "reqwest",
  "secrecy",
  "serde",
+ "thiserror",
  "tokio",
  "tokio-test",
+ "url",
 ]
 
 [[package]]

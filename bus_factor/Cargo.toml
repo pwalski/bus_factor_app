@@ -15,10 +15,8 @@ tokio = { version = "1.18", features = [
     "sync",
 ], optional = true }
 async-trait = "0.1"
-reqwest = { version = "0.11", optional = true }
 anyhow = "1.0"
-url = { version = "2.2", optional = true }
 
 [features]
-api = ["dep:reqwest", "dep:url"]
+api = []
 calculator = ["dep:futures", "dep:tokio"]
