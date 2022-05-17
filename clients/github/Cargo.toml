@@ -19,4 +19,4 @@ tokio = { version = "1.18", features = ["time"] }
 url = "2.2"
 
 [dev-dependencies]
-tokio-test = "0.4"
+tokio = { version = "1.18", features = ["macros"] }

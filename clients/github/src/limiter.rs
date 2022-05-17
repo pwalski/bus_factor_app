@@ -73,3 +73,42 @@ where
         .map(HeaderValue::to_str)??;
     Ok(header.parse::<T>()?)
 }
+
+#[tokio::test]
+async fn wait_test() -> anyhow::Result<()> {
+    let reset = Utc::now().timestamp() + 1;
+    let limit = RateLimit::new(3, 1, reset);
+    let limiter = RateLimiter::new(Arc::new(Mutex::new(limit)));
+    limiter.wait().await;
+    assert_eq!(
+        Utc::now().timestamp(),
+        reset - 1,
+        "Limiter should not wait with remaining set to 1"
+    );
+
+    limiter.wait().await;
+    assert_eq!(Utc::now().timestamp(), reset + 1, "Limiter should wait 1s");
+
+    let then = Utc::now().timestamp();
+    limiter.wait().await;
+    limiter.wait().await;
+    assert_eq!(
+        Utc::now().timestamp(),
+        then,
+        "Remaining should be reset after reaching limit, so no wait."
+    );
+
+    let reset = then + 1;
+    let mut headers = HeaderMap::new();
+    headers.insert("x-ratelimit-limit", HeaderValue::from_str("3")?);
+    headers.insert("x-ratelimit-remaining", HeaderValue::from_str("2")?);
+    headers.insert("x-ratelimit-reset", HeaderValue::from_str(&format!("{}", reset))?);
+    limiter.reset_limiter(&headers).await?;
+    assert_eq!(
+        reset,
+        Utc::now().timestamp() + 1,
+        "Reset has been reset, but remaining arriving in header has been ignored, so limiter should wait."
+    );
+
+    Ok(())
+}
