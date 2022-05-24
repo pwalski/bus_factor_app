@@ -1,5 +1,5 @@
-use crate::api::Error;
 use crate::api::{Client, Contributor, Repo};
+use crate::api::{Error, Sort};
 use derive_more::Constructor;
 use futures::task::Poll;
 use futures::{stream, Stream, StreamExt};
@@ -55,8 +55,9 @@ where
         repo_count: u32,
         max_repo_requests: usize,
         max_contrib_requests: usize,
+        order: Sort,
     ) -> BusFactorStream {
-        Self::top_repos(self.client.clone(), lang, repo_count)
+        Self::top_repos(self.client.clone(), lang, repo_count, order)
             .buffered(max_repo_requests)
             .flat_map(Self::map_top_repos_result)
             .map(move |r| Self::repo_bus_factor(r, self.client.clone(), self.threshold))
@@ -69,27 +70,33 @@ where
         client: Arc<CLIENT>,
         lang: String,
         repo_count: u32,
+        order: Sort,
     ) -> Pin<Box<dyn Stream<Item = JoinHandle<Result<Vec<REPO>, crate::api::Error>>> + Send>> {
         let mut paginator = Paginator::new(FIRST_PAGE_NUMBER, MAX_REPOS_PAGE, repo_count);
         stream::poll_fn(move |_| Poll::Ready(paginator.next_page()))
             .map(move |page| {
                 let client = client.clone();
                 let lang = lang.clone();
-                tokio::spawn(Self::top_repos_page(client, lang, page))
+                tokio::spawn(Self::top_repos_page(client, lang, page, order.clone()))
             })
             .boxed()
     }
 
-    async fn top_repos_page(client: Arc<CLIENT>, lang: String, page: Page) -> crate::api::Result<Vec<REPO>> {
+    async fn top_repos_page(
+        client: Arc<CLIENT>,
+        lang: String,
+        page: Page,
+        order: Sort,
+    ) -> crate::api::Result<Vec<REPO>> {
         if page.page_size < MAX_REPOS_PAGE {
             if page.page_no == FIRST_PAGE_NUMBER {
-                client.top_repos(lang.into(), page.page_no, page.page_size).await
+                client.top_repos(lang.into(), page.page_no, page.page_size, order).await
             } else {
-                let repos = client.top_repos(lang.into(), page.page_no, MAX_REPOS_PAGE).await;
+                let repos = client.top_repos(lang.into(), page.page_no, MAX_REPOS_PAGE, order).await;
                 repos.map(|v| take_first_n(v, page.page_size))
             }
         } else {
-            client.top_repos(lang.into(), page.page_no, page.page_size).await
+            client.top_repos(lang.into(), page.page_no, page.page_size, order).await
         }
     }
 

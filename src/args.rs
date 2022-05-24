@@ -1,3 +1,4 @@
+use bus_factor::api::Sort;
 use clap::Parser;
 use secrecy::SecretString;
 use std::{
@@ -15,6 +16,9 @@ pub struct Args {
     /// Number of times to greet
     #[clap(short, long, env)]
     pub project_count: u32,
+
+    #[clap(short, long, env, default_value = "stars")]
+    pub sort: Sort,
 
     /// API OAuth access token
     #[clap(short, long, env)]

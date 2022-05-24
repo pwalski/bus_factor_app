@@ -4,11 +4,13 @@ mod payload;
 
 use async_trait::async_trait;
 use bus_factor::api::Contributor;
+use bus_factor::api::Sort;
 use derive_more::Constructor;
 use limiter::RateLimiter;
 use reqwest::Client;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
+use std::convert::AsRef;
 use thiserror::Error;
 
 pub use builder::GithubClientBuilder;
@@ -36,8 +38,14 @@ impl bus_factor::api::Repo for GithubRepo {
 
 #[async_trait]
 impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
-    async fn top_repos(&self, lang: String, page: u32, per_page: u32) -> bus_factor::api::Result<Vec<GithubRepo>> {
-        self.get_top_repos(lang, page, per_page)
+    async fn top_repos(
+        &self,
+        lang: String,
+        page: u32,
+        per_page: u32,
+        order: Sort,
+    ) -> bus_factor::api::Result<Vec<GithubRepo>> {
+        self.get_top_repos(lang, page, per_page, order)
             .await
             .map_err(crate::Error::into)
     }
@@ -55,7 +63,7 @@ impl bus_factor::api::Client<GithubRepo, 100, 100, 1> for GithubClient {
 }
 
 impl GithubClient {
-    async fn get_top_repos(&self, lang: String, page: u32, per_page: u32) -> Result<Vec<GithubRepo>> {
+    async fn get_top_repos(&self, lang: String, page: u32, per_page: u32, order: Sort) -> Result<Vec<GithubRepo>> {
         let request_url = format!("{}/search/repositories", self.github_url);
         let lang_query = format!("language:{}", lang);
         self.repos_limiter.wait().await;
@@ -68,6 +76,7 @@ impl GithubClient {
                 ("order", "desc".to_string()),
                 ("page", page.to_string()),
                 ("per_page", per_page.to_string()),
+                ("sort", String::from(order.as_ref())),
             ])
             .send()
             .await?;
