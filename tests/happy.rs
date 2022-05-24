@@ -1,3 +1,4 @@
+use bus_factor::api::Sort;
 use bus_factor::BusFactor;
 use bus_factor_app::args::Args;
 use bus_factor_app::calculate_bus_factor;
@@ -39,6 +40,7 @@ async fn happy_path_300() {
         threshold: 0.75,
         max_repo_req: 1,
         max_contrib_req: 10,
+        sort: Sort::HelpWantedIssues,
     };
 
     let calculated_bus_factors: Vec<BusFactor> = calculate_bus_factor(args).await.unwrap().collect().await;
@@ -114,7 +116,7 @@ async fn mock_repos<'a>(server: &MockServer, repos_count: u32, lang: String) {
         Mock::given(method("GET"))
             .and(path("/search/repositories"))
             .and(query_param("q", format!("language:{}", lang)))
-            .and(query_param("sort", "stars"))
+            .and(query_param("sort", "help_wanted_issues"))
             .and(query_param("order", "desc"))
             .and(query_param("per_page", format!("{}", MAX_REPOS_PAGE)))
             .and(query_param("page", format!("{}", repo_page + 1)))

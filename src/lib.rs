@@ -21,5 +21,6 @@ pub async fn calculate_bus_factor(args: Args) -> Result<BusFactorStream> {
         args.project_count,
         args.max_repo_req as usize,
         args.max_contrib_req as usize,
+        args.sort,
     ))
 }
