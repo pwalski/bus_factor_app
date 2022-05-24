@@ -1,6 +1,6 @@
 [package]
 name = "bus_factor"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 license = "MIT"
 
@@ -16,8 +16,8 @@ tokio = { version = "1.18", features = [
     "rt-multi-thread",
     "sync",
 ], optional = true }
-strum_macros = "*"
-strum = "*"
+strum_macros = "0.24"
+strum = "0.24"
 
 [features]
 api = []

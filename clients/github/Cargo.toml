@@ -1,6 +1,6 @@
 [package]
 name = "bus_factor_github_client"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 license = "MIT"
 
@@ -17,8 +17,8 @@ serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 tokio = { version = "1.18", features = ["time"] }
 url = "2.2"
-strum_macros = "*"
-strum = "*"
+strum_macros = "0.24"
+strum = "0.24"
 
 [dev-dependencies]
 tokio = { version = "1.18", features = ["macros"] }
